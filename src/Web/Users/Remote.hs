@@ -19,6 +19,9 @@ import qualified Data.Vector                  as V
 
 import           Database.PostgreSQL.Simple
 
+import qualified Facebook                     as FB
+
+import qualified Network.HTTP.Conduit         as C
 import           Network.MessagePack.Server
 
 import           Web.Users.Types              hiding (UserId)
@@ -101,3 +104,17 @@ runServer _ = do
              , method "getUserById" getUserById'
              , method "authUser" authUser'
              ]
+
+appCredentials :: FB.Credentials
+appCredentials = undefined
+
+login :: FB.FacebookT FB.Auth IO T.Text
+login = do
+  url <- FB.getUserAccessTokenStep1 "" []
+  return url
+
+main = do
+  manager <- C.newManager C.tlsManagerSettings
+  url <- FB.runFacebookT appCredentials manager login
+  print url
+  return ()
