@@ -14,6 +14,7 @@ import           Data.Int
 import           Data.MessagePack.Object
 import           Data.Proxy
 import qualified Data.Text                    as T
+import           Data.Time.Clock
 import qualified Data.Vector                  as V
 
 import           Database.PostgreSQL.Simple
@@ -31,6 +32,34 @@ instance MessagePack UserId where
     Right (_, _, a) -> a
     _ -> Nothing
   fromObject _ = Nothing
+
+instance MessagePack NominalDiffTime where
+  toObject = undefined
+  fromObject = undefined
+
+instance MessagePack SessionId where
+  toObject = undefined
+  fromObject = undefined
+
+instance MessagePack PasswordPlain where
+  toObject = undefined
+  fromObject = undefined
+
+instance MessagePack PasswordResetToken where
+  toObject = undefined
+  fromObject = undefined
+
+instance MessagePack CreateUserError where
+  toObject = undefined
+  fromObject = undefined
+
+instance MessagePack UpdateUserError where
+  toObject = undefined
+  fromObject = undefined
+
+instance MessagePack TokenError where
+  toObject = undefined
+  fromObject = undefined
 
 instance MessagePack Password where
   toObject (PasswordHash hash) = ObjectArray $ V.fromList
@@ -65,6 +94,10 @@ runServer _ = do
       getUserById' :: (MessagePack a, FromJSON a, ToJSON a) => UserId -> Server (Maybe (User a))
       getUserById' = liftIO . getUserById conn
 
+      authUser' :: T.Text -> PasswordPlain -> NominalDiffTime -> Server (Maybe SessionId)
+      authUser' a b c = liftIO $ authUser conn a b c
+
   serve 8537 [ method "getUserIdByName" getUserIdByName'
              , method "getUserById" getUserById'
+             , method "authUser" authUser'
              ]
