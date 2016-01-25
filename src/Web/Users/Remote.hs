@@ -6,6 +6,7 @@
 module Web.Users.Remote where
 
 import           Control.Monad.IO.Class
+import           Control.Monad.Trans.Resource
 
 import           Data.Aeson
 import qualified Data.ByteString.Lazy        as B
@@ -64,6 +65,10 @@ instance MessagePack TokenError where
   toObject = undefined
   fromObject = undefined
 
+instance MessagePack (FB.AccessToken FB.UserKind) where
+  toObject = undefined
+  fromObject = undefined
+
 instance MessagePack Password where
   toObject (PasswordHash hash) = ObjectArray $ V.fromList
     [ ObjectBool True, ObjectStr hash ]
@@ -91,6 +96,8 @@ runServer _ = do
   conn <- connectPostgreSQL ""
   initUserBackend conn
 
+  manager <- C.newManager C.tlsManagerSettings
+
   let getUserIdByName' :: T.Text -> Server (Maybe UserId)
       getUserIdByName' = liftIO . getUserIdByName conn
 
@@ -100,9 +107,15 @@ runServer _ = do
       authUser' :: T.Text -> PasswordPlain -> NominalDiffTime -> Server (Maybe SessionId)
       authUser' a b c = liftIO $ authUser conn a b c
 
+      fbLogin2 :: FB.RedirectUrl -> [FB.Argument] -> Server FB.UserAccessToken
+      fbLogin2 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
+        token <- FB.getUserAccessTokenStep2 url args
+        return token
+
   serve 8537 [ method "getUserIdByName" getUserIdByName'
              , method "getUserById" getUserById'
              , method "authUser" authUser'
+             , method "fbLogin2" fbLogin2
              ]
 
 appCredentials :: FB.Credentials
