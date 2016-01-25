@@ -69,6 +69,10 @@ instance MessagePack (FB.AccessToken FB.UserKind) where
   toObject = undefined
   fromObject = undefined
 
+instance MessagePack (FB.Permission) where
+  toObject = undefined
+  fromObject = undefined
+
 instance MessagePack Password where
   toObject (PasswordHash hash) = ObjectArray $ V.fromList
     [ ObjectBool True, ObjectStr hash ]
@@ -107,14 +111,18 @@ runServer _ = do
       authUser' :: T.Text -> PasswordPlain -> NominalDiffTime -> Server (Maybe SessionId)
       authUser' a b c = liftIO $ authUser conn a b c
 
+      fbLogin1 :: FB.RedirectUrl -> [FB.Permission] -> Server T.Text
+      fbLogin1 url perms = liftIO $ FB.runFacebookT appCredentials manager $ do
+        FB.getUserAccessTokenStep1 url perms
+
       fbLogin2 :: FB.RedirectUrl -> [FB.Argument] -> Server FB.UserAccessToken
       fbLogin2 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
-        token <- FB.getUserAccessTokenStep2 url args
-        return token
+        FB.getUserAccessTokenStep2 url args
 
   serve 8537 [ method "getUserIdByName" getUserIdByName'
              , method "getUserById" getUserById'
              , method "authUser" authUser'
+             , method "fbLogin1" fbLogin1
              , method "fbLogin2" fbLogin2
              ]
 
