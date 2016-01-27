@@ -33,22 +33,27 @@ import           Web.Users.Postgresql         ()
 
 type UserId = Int64
 
+deriveJSON defaultOptions ''CreateUserError
 deriveJSON defaultOptions ''NominalDiffTime
 deriveJSON defaultOptions ''PasswordPlain
+deriveJSON defaultOptions ''Password
 deriveJSON defaultOptions ''FB.Permission
 
 appCredentials :: FB.Credentials
-appCredentials = undefined
+appCredentials = FB.Credentials "" "" ""
 
 runServer :: forall a. (FromJSON a, ToJSON a) => Proxy a -> IO ()
 runServer _ = do
-  conn <- connectPostgreSQL ""
+  conn <- connectPostgreSQL "host=localhost port=5432 dbname=postgres connect_timeout=10"
   initUserBackend conn
 
   manager <- C.newManager C.tlsManagerSettings
 
   let getUserIdByName' :: T.Text -> Server (AsMessagePack (Maybe UserId))
       getUserIdByName' n = liftIO $ AsMessagePack <$> getUserIdByName conn n
+
+      createUser' :: (FromJSON a, ToJSON a) => AsMessagePack (User a) -> AsMessagePack Password -> Server (AsMessagePack (Either CreateUserError UserId))
+      createUser' u pwd = liftIO $ AsMessagePack <$> createUser conn ((getAsMessagePack u) { u_password = getAsMessagePack pwd })
 
       getUserById' :: (FromJSON a, ToJSON a) => AsMessagePack UserId -> Server (AsMessagePack (Maybe (User a)))
       getUserById' uid = liftIO $ AsMessagePack <$> getUserById conn (getAsMessagePack uid)
@@ -65,6 +70,7 @@ runServer _ = do
         AsMessagePack <$> FB.getUserAccessTokenStep2 url args
 
   serve 8537 [ method "getUserIdByName" getUserIdByName'
+             , method "createUser" createUser'
              , method "getUserById" getUserById'
              , method "authUser" authUser'
              , method "fbLogin1" fbLogin1
@@ -73,3 +79,25 @@ runServer _ = do
 
 getUserIdByName' :: T.Text -> Client (Maybe UserId)
 getUserIdByName' a = getAsMessagePack <$> call "getUserIdByName" a
+
+createUser' :: (FromJSON a, ToJSON a) => User a -> Client (Either CreateUserError UserId)
+createUser' u = getAsMessagePack <$> call "createUser" (AsMessagePack u) (AsMessagePack $ u_password u)
+
+getUserById' :: (FromJSON a, ToJSON a) => UserId -> Client (Maybe (User a))
+getUserById' uid = getAsMessagePack <$> call "getUserById" (AsMessagePack uid)
+
+authUser' :: T.Text -> PasswordPlain -> NominalDiffTime -> Client (Maybe SessionId)
+authUser' a b c = getAsMessagePack <$> call "authUser" a (AsMessagePack b) (AsMessagePack c)
+
+fbLogin1 :: FB.RedirectUrl -> [FB.Permission] -> Client T.Text
+fbLogin1 url perms = call "fbLogin1" url (AsMessagePack perms)
+
+fbLogin2 :: FB.RedirectUrl -> [FB.Argument] -> Client FB.UserAccessToken
+fbLogin2 url args = getAsMessagePack <$> call "fbLogin2" url args
+
+testClient :: IO ()
+testClient = do
+  execClient "localhost" 8537 $ do
+    uid <- createUser' (User "localuser" "user@gmail.com" (makePassword "pwd") True (0 :: Int))
+    sid <- authUser' "localuser" "pwd" 99999999
+    liftIO $ print sid
