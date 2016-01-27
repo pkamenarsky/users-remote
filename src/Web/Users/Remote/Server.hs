@@ -15,6 +15,7 @@ import qualified Data.ByteString.Lazy        as B
 import qualified Data.ByteString             as BS
 import           Data.Int
 import           Data.MessagePack.Aeson
+import           Data.Maybe
 import           Data.Proxy
 import           Data.String
 import qualified Data.Text                    as T
@@ -53,6 +54,12 @@ class Default a where
 
 type UserInfo a = (a, UserProviderInfo)
 
+data FacebookLoginError = UserEmailEmptyError
+                        | CreateSessionError
+                        | CreateUserError CreateUserError
+
+deriveJSON defaultOptions ''FacebookLoginError
+
 -- "host=localhost port=5432 dbname=postgres connect_timeout=10"
 runServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> BS.ByteString -> FB.Credentials -> IO ()
 runServer _ url appCredentials = do
@@ -77,16 +84,12 @@ runServer _ url appCredentials = do
       verifySession' :: AsMessagePack SessionId -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe UserId))
       verifySession' sid t = liftIO $ AsMessagePack <$> verifySession conn (getAsMessagePack sid) (getAsMessagePack t)
 
-      fbLogin1 :: T.Text -> [T.Text] -> Server T.Text
-      fbLogin1 url perms = liftIO $ FB.runFacebookT appCredentials manager $ do
+      facebookLoginUrl :: T.Text -> [T.Text] -> Server T.Text
+      facebookLoginUrl url perms = liftIO $ FB.runFacebookT appCredentials manager $ do
         FB.getUserAccessTokenStep1 url (map (fromString . show) $ perms ++ ["email"])
 
-      fbLogin2 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Server (AsMessagePack FB.UserAccessToken)
-      fbLogin2 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
-        AsMessagePack <$> FB.getUserAccessTokenStep2 url args
-
-      fbLogin3 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Server (AsMessagePack (Either CreateUserError UserId))
-      fbLogin3 url args = liftIO $ do
+      facebookLogin :: T.Text -> [(BS.ByteString, BS.ByteString)] -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Either FacebookLoginError SessionId))
+      facebookLogin url args t = liftIO $ do
 
         -- try to fetch facebook user
         fbUser <- runResourceT $ FB.runFacebookT appCredentials manager $ do
@@ -98,18 +101,27 @@ runServer _ url appCredentials = do
             uid <- getUserIdByName conn email
 
             case uid of
-              Just uid -> return $ Right uid
-              Nothing  -> createUser conn (User "localuser" "user@gmail.com" (makePassword "") True ((defaultValue :: a), FacebookInfo fbUser))
+              Just uid -> do
+                sid <- createSession conn uid (getAsMessagePack t)
+                return $ maybe (Left CreateSessionError) Right sid
+              Nothing  -> do
+                uid <- createUser conn (User "localuser" "user@gmail.com" (makePassword "") True ((defaultValue :: a), FacebookInfo fbUser))
 
-          Nothing -> return $ Left EmailAlreadyTaken
+                case uid of
+                  Left e -> return $ Left $ CreateUserError e
+                  Right uid -> do
+                    sid <- createSession conn uid (getAsMessagePack t)
+                    return $ maybe (Left CreateSessionError) Right sid
+
+          Nothing -> return $ Left UserEmailEmptyError
 
   serve 8537 [ method "getUserIdByName" getUserIdByName'
              , method "createUser" createUser'
              , method "getUserById" getUserById'
              , method "authUser" authUser'
              , method "verifySession" verifySession'
-             , method "fbLogin1" fbLogin1
-             , method "fbLogin2" fbLogin2
+             , method "facebookLoginUrl" facebookLoginUrl
+             , method "facebookLogin" facebookLogin
              ]
 
 getUserIdByName' :: T.Text -> Client (Maybe UserId)
@@ -127,11 +139,11 @@ authUser' a b c = getAsMessagePack <$> call "authUser" a (AsMessagePack b) (AsMe
 verifySession' :: SessionId -> NominalDiffTime -> Client (Maybe UserId)
 verifySession' sid t = getAsMessagePack <$> call "verifySession" (AsMessagePack sid) (AsMessagePack t)
 
-fbLogin1 :: T.Text -> [T.Text] -> Client T.Text
-fbLogin1 url perms = call "fbLogin1" url (AsMessagePack perms)
+facebookLoginUrl :: T.Text -> [T.Text] -> Client T.Text
+facebookLoginUrl url perms = call "facebookLoginUrl" url (AsMessagePack perms)
 
-fbLogin2 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Client FB.UserAccessToken
-fbLogin2 url args = getAsMessagePack <$> call "fbLogin2" url args
+facebookLogin :: T.Text -> [(BS.ByteString, BS.ByteString)] -> NominalDiffTime -> Client FB.UserAccessToken
+facebookLogin url args t = getAsMessagePack <$> call "facebookLogin" url args (AsMessagePack t)
 
 testClient :: IO ()
 testClient = do
