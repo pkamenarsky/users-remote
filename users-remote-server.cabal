@@ -3,17 +3,23 @@
 
 name:                users-remote
 version:             0.1.0.0
--- synopsis:            
--- description:         
+synopsis:            User auth microservice based on users-postgresql-simple and msgpack
+description:         A drop-in microservice for user authentication. Supports Facebook OAuth.
 license:             BSD3
 license-file:        LICENSE
 author:              Philip Kamenarsky
 maintainer:          p.kamenarsky@gmail.com
+homepage:            https://github.com/pkamenarsky/users-remote
+bug-reports:         https://github.com/pkamenarsky/users-remote/issues
 -- copyright:           
 category:            Web
 build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10
+
+source-repository head
+  type: git
+  location: git://github.com/pkamenarsky/users-remote.git
 
 library
   exposed-modules:     Web.Users.Remote.Server,
