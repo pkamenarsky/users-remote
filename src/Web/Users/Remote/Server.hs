@@ -105,7 +105,7 @@ runServer _ url appCredentials = do
                 sid <- createSession conn uid (getAsMessagePack t)
                 return $ maybe (Left CreateSessionError) Right sid
               Nothing  -> do
-                uid <- createUser conn (User "localuser" "user@gmail.com" (makePassword "") True ((defaultValue :: a), FacebookInfo fbUser))
+                uid <- createUser conn (User email email (makePassword "") True ((defaultValue :: a), FacebookInfo fbUser))
 
                 case uid of
                   Left e -> return $ Left $ CreateUserError e
