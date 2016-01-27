@@ -43,13 +43,18 @@ deriveToJSON defaultOptions ''FB.Location
 deriveToJSON defaultOptions ''FB.Place
 deriveToJSON defaultOptions ''FB.User
 
-data UserProviderInfo = Facebook FB.User
+data UserProviderInfo = FacebookInfo FB.User
                       | None
+
+deriveJSON defaultOptions ''UserProviderInfo
+
+class Default a where
+  defaultValue :: a
 
 type UserInfo a = (a, UserProviderInfo)
 
 -- "host=localhost port=5432 dbname=postgres connect_timeout=10"
-runServer :: forall a. (FromJSON a, ToJSON a) => Proxy a -> BS.ByteString -> FB.Credentials -> IO ()
+runServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> BS.ByteString -> FB.Credentials -> IO ()
 runServer _ url appCredentials = do
   conn <- connectPostgreSQL url
   initUserBackend conn
@@ -60,7 +65,8 @@ runServer _ url appCredentials = do
       getUserIdByName' n = liftIO $ AsMessagePack <$> getUserIdByName conn n
 
       createUser' :: (FromJSON a, ToJSON a) => AsMessagePack (User a) -> AsMessagePack Password -> Server (AsMessagePack (Either CreateUserError UserId))
-      createUser' u pwd = liftIO $ AsMessagePack <$> createUser conn ((getAsMessagePack u) { u_password = getAsMessagePack pwd })
+      createUser' user pwd = liftIO $ AsMessagePack <$> createUser conn (user' { u_password = getAsMessagePack pwd, u_more = (u_more user', None)})
+        where user' = getAsMessagePack user
 
       getUserById' :: (FromJSON a, ToJSON a) => AsMessagePack UserId -> Server (AsMessagePack (Maybe (User a)))
       getUserById' uid = liftIO $ AsMessagePack <$> getUserById conn (getAsMessagePack uid)
@@ -73,17 +79,29 @@ runServer _ url appCredentials = do
 
       fbLogin1 :: T.Text -> [T.Text] -> Server T.Text
       fbLogin1 url perms = liftIO $ FB.runFacebookT appCredentials manager $ do
-        FB.getUserAccessTokenStep1 url (map (fromString . show) perms)
+        FB.getUserAccessTokenStep1 url (map (fromString . show) $ perms ++ ["email"])
 
       fbLogin2 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Server (AsMessagePack FB.UserAccessToken)
       fbLogin2 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
         AsMessagePack <$> FB.getUserAccessTokenStep2 url args
 
-      -- fbLogin3 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Server (AsMessagePack FB.UserAccessToken)
-      fbLogin3 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
-        token <- FB.getUserAccessTokenStep2 url args
-        user <- FB.getUser "me" [] (Just token)
-        return ()
+      fbLogin3 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Server (AsMessagePack (Either CreateUserError UserId))
+      fbLogin3 url args = liftIO $ do
+
+        -- try to fetch facebook user
+        fbUser <- runResourceT $ FB.runFacebookT appCredentials manager $ do
+          token <- FB.getUserAccessTokenStep2 url args
+          FB.getUser "me" [] (Just token)
+
+        AsMessagePack <$> case FB.userEmail fbUser of
+          Just email -> do
+            uid <- getUserIdByName conn email
+
+            case uid of
+              Just uid -> return $ Right uid
+              Nothing  -> createUser conn (User "localuser" "user@gmail.com" (makePassword "") True ((defaultValue :: a), FacebookInfo fbUser))
+
+          Nothing -> return $ Left EmailAlreadyTaken
 
   serve 8537 [ method "getUserIdByName" getUserIdByName'
              , method "createUser" createUser'
