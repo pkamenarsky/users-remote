@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Web.Users.Remote where
 
@@ -9,10 +10,12 @@ import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
 
 import           Data.Aeson
+import           Data.Aeson.TH
 import qualified Data.ByteString.Lazy        as B
 import qualified Data.Binary                 as BI
 import           Data.Int
 import           Data.MessagePack.Object
+import           Data.MessagePack.Aeson
 import           Data.Proxy
 import qualified Data.Text                    as T
 import           Data.Time.Clock
@@ -30,70 +33,12 @@ import           Web.Users.Postgresql         ()
 
 type UserId = Int64
 
-instance MessagePack UserId where
-  toObject uid = ObjectBin (B.toStrict $ BI.encode uid)
-  fromObject (ObjectBin bin) = case BI.decodeOrFail $ B.fromStrict bin of
-    Right (_, _, a) -> a
-    _ -> Nothing
-  fromObject _ = Nothing
+deriveJSON defaultOptions ''NominalDiffTime
+deriveJSON defaultOptions ''PasswordPlain
+deriveJSON defaultOptions ''FB.Permission
 
-instance MessagePack NominalDiffTime where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack SessionId where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack PasswordPlain where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack PasswordResetToken where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack CreateUserError where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack UpdateUserError where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack TokenError where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack (FB.AccessToken FB.UserKind) where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack (FB.Permission) where
-  toObject = undefined
-  fromObject = undefined
-
-instance MessagePack Password where
-  toObject (PasswordHash hash) = ObjectArray $ V.fromList
-    [ ObjectBool True, ObjectStr hash ]
-  fromObject (ObjectArray a) = case V.toList a of
-    [ ObjectBool True, ObjectStr hash ] -> Just (PasswordHash hash)
-    _ -> Nothing
-  fromObject _ = Nothing
-
-instance MessagePack a => MessagePack (User a) where
-  toObject User {..} = ObjectArray $ V.fromList
-    [ ObjectStr u_name
-    , ObjectStr u_email
-    , toObject u_password
-    , ObjectBool u_active
-    , toObject u_more
-    ]
-  fromObject (ObjectArray a) = case V.toList a of
-    [ ObjectStr u_name , ObjectStr u_email , u_password , ObjectBool u_active , u_more ]
-      -> User <$> pure u_name <*> pure u_email <*> fromObject u_password <*> pure u_active <*> fromObject u_more
-    _ -> Nothing
-  fromObject _ = Nothing
+appCredentials :: FB.Credentials
+appCredentials = undefined
 
 runServer :: forall a. (MessagePack a, FromJSON a, ToJSON a) => Proxy a -> IO ()
 runServer _ = do
@@ -102,22 +47,22 @@ runServer _ = do
 
   manager <- C.newManager C.tlsManagerSettings
 
-  let getUserIdByName' :: T.Text -> Server (Maybe UserId)
-      getUserIdByName' = liftIO . getUserIdByName conn
+  let getUserIdByName' :: T.Text -> Server (AsMessagePack (Maybe UserId))
+      getUserIdByName' n = liftIO $ AsMessagePack <$> getUserIdByName conn n
 
-      getUserById' :: (MessagePack a, FromJSON a, ToJSON a) => UserId -> Server (Maybe (User a))
-      getUserById' = liftIO . getUserById conn
+      getUserById' :: (FromJSON a, ToJSON a) => AsMessagePack UserId -> Server (AsMessagePack (Maybe (User a)))
+      getUserById' uid = liftIO $ AsMessagePack <$> getUserById conn (getAsMessagePack uid)
 
-      authUser' :: T.Text -> PasswordPlain -> NominalDiffTime -> Server (Maybe SessionId)
-      authUser' a b c = liftIO $ authUser conn a b c
+      authUser' :: T.Text -> AsMessagePack PasswordPlain -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe SessionId))
+      authUser' a b c = liftIO $ AsMessagePack <$> authUser conn a (getAsMessagePack b) (getAsMessagePack c)
 
-      fbLogin1 :: FB.RedirectUrl -> [FB.Permission] -> Server T.Text
+      fbLogin1 :: FB.RedirectUrl -> AsMessagePack [FB.Permission] -> Server T.Text
       fbLogin1 url perms = liftIO $ FB.runFacebookT appCredentials manager $ do
-        FB.getUserAccessTokenStep1 url perms
+        FB.getUserAccessTokenStep1 url (getAsMessagePack perms)
 
-      fbLogin2 :: FB.RedirectUrl -> [FB.Argument] -> Server FB.UserAccessToken
+      fbLogin2 :: FB.RedirectUrl -> [FB.Argument] -> Server (AsMessagePack FB.UserAccessToken)
       fbLogin2 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
-        FB.getUserAccessTokenStep2 url args
+        AsMessagePack <$> FB.getUserAccessTokenStep2 url args
 
   serve 8537 [ method "getUserIdByName" getUserIdByName'
              , method "getUserById" getUserById'
@@ -125,17 +70,3 @@ runServer _ = do
              , method "fbLogin1" fbLogin1
              , method "fbLogin2" fbLogin2
              ]
-
-appCredentials :: FB.Credentials
-appCredentials = undefined
-
-login :: FB.FacebookT FB.Auth IO T.Text
-login = do
-  url <- FB.getUserAccessTokenStep1 "" []
-  return url
-
-main = do
-  manager <- C.newManager C.tlsManagerSettings
-  url <- FB.runFacebookT appCredentials manager login
-  print url
-  return ()

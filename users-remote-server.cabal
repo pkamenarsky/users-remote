@@ -26,6 +26,7 @@ library
                        fb >=1.0 && <1.1,
                        http-conduit >=2.1 && <2.2,
                        msgpack >=1.0 && <1.1,
+                       msgpack-aeson >=0.1 && <0.2,
                        msgpack-rpc >=1.0 && <1.1,
                        mtl >=2.2 && <2.3,
                        postgresql-simple >=0.5 && <0.6,
