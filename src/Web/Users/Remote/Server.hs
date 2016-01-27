@@ -8,6 +8,7 @@ module Web.Users.Remote.Server where
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
+import           Control.Monad
 
 import           Data.Aeson
 import           Data.Aeson.TH
@@ -28,6 +29,8 @@ import qualified Facebook                     as FB
 import qualified Network.HTTP.Conduit         as C
 import           Network.MessagePack.Server
 import           Network.MessagePack.Client
+
+import           System.Random
 
 import           Web.Users.Types              hiding (UserId)
 import           Web.Users.Postgresql         ()
@@ -79,7 +82,16 @@ runServer _ url appCredentials = do
       getUserById' uid = liftIO $ AsMessagePack <$> getUserById conn (getAsMessagePack uid)
 
       authUser' :: T.Text -> AsMessagePack PasswordPlain -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe SessionId))
-      authUser' a b c = liftIO $ AsMessagePack <$> authUser conn a (getAsMessagePack b) (getAsMessagePack c)
+      authUser' name pwd t =
+        liftIO $ AsMessagePack . join <$> withAuthUser conn name verifyUser createSession'
+          where
+            createSession' uid = createSession conn uid (getAsMessagePack t)
+
+            -- don't allow facebook users to login with a password
+            verifyUser :: User (UserInfo a) -> Bool
+            verifyUser user = case u_more user of
+              (_, None) -> verifyPassword (getAsMessagePack pwd) $ u_password user
+              (_, FacebookInfo _) -> False
 
       verifySession' :: AsMessagePack SessionId -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe UserId))
       verifySession' sid t = liftIO $ AsMessagePack <$> verifySession conn (getAsMessagePack sid) (getAsMessagePack t)
@@ -105,7 +117,9 @@ runServer _ url appCredentials = do
                 sid <- createSession conn uid (getAsMessagePack t)
                 return $ maybe (Left CreateSessionError) Right sid
               Nothing  -> do
-                uid <- createUser conn (User email email (makePassword "") True ((defaultValue :: a), FacebookInfo fbUser))
+                g <- newStdGen
+                let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
+                uid <- createUser conn (User email email (makePassword pwd) True ((defaultValue :: a), FacebookInfo fbUser))
 
                 case uid of
                   Left e -> return $ Left $ CreateUserError e
