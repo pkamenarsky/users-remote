@@ -14,7 +14,6 @@ import           Data.Aeson.TH
 import qualified Data.ByteString.Lazy        as B
 import qualified Data.Binary                 as BI
 import           Data.Int
-import           Data.MessagePack.Object
 import           Data.MessagePack.Aeson
 import           Data.Proxy
 import qualified Data.Text                    as T
@@ -27,6 +26,7 @@ import qualified Facebook                     as FB
 
 import qualified Network.HTTP.Conduit         as C
 import           Network.MessagePack.Server
+import           Network.MessagePack.Client
 
 import           Web.Users.Types              hiding (UserId)
 import           Web.Users.Postgresql         ()
@@ -40,7 +40,7 @@ deriveJSON defaultOptions ''FB.Permission
 appCredentials :: FB.Credentials
 appCredentials = undefined
 
-runServer :: forall a. (MessagePack a, FromJSON a, ToJSON a) => Proxy a -> IO ()
+runServer :: forall a. (FromJSON a, ToJSON a) => Proxy a -> IO ()
 runServer _ = do
   conn <- connectPostgreSQL ""
   initUserBackend conn
@@ -70,3 +70,6 @@ runServer _ = do
              , method "fbLogin1" fbLogin1
              , method "fbLogin2" fbLogin2
              ]
+
+getUserIdByName' :: T.Text -> Client (Maybe UserId)
+getUserIdByName' a = getAsMessagePack <$> call "getUserIdByName" a
