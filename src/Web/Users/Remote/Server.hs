@@ -4,7 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Web.Users.Remote where
+module Web.Users.Remote.Server where
 
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
@@ -13,13 +13,12 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.ByteString.Lazy        as B
 import qualified Data.ByteString             as BS
-import qualified Data.Binary                 as BI
 import           Data.Int
 import           Data.MessagePack.Aeson
 import           Data.Proxy
+import           Data.String
 import qualified Data.Text                    as T
 import           Data.Time.Clock
-import qualified Data.Vector                  as V
 
 import           Database.PostgreSQL.Simple
 
@@ -38,7 +37,16 @@ deriveJSON defaultOptions ''CreateUserError
 deriveJSON defaultOptions ''NominalDiffTime
 deriveJSON defaultOptions ''PasswordPlain
 deriveJSON defaultOptions ''Password
-deriveJSON defaultOptions ''FB.Permission
+
+deriveToJSON defaultOptions ''FB.GeoCoordinates
+deriveToJSON defaultOptions ''FB.Location
+deriveToJSON defaultOptions ''FB.Place
+deriveToJSON defaultOptions ''FB.User
+
+data UserProviderInfo = Facebook FB.User
+                      | None
+
+type UserInfo a = (a, UserProviderInfo)
 
 -- "host=localhost port=5432 dbname=postgres connect_timeout=10"
 runServer :: forall a. (FromJSON a, ToJSON a) => Proxy a -> BS.ByteString -> FB.Credentials -> IO ()
@@ -63,13 +71,19 @@ runServer _ url appCredentials = do
       verifySession' :: AsMessagePack SessionId -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe UserId))
       verifySession' sid t = liftIO $ AsMessagePack <$> verifySession conn (getAsMessagePack sid) (getAsMessagePack t)
 
-      fbLogin1 :: FB.RedirectUrl -> AsMessagePack [FB.Permission] -> Server T.Text
+      fbLogin1 :: T.Text -> [T.Text] -> Server T.Text
       fbLogin1 url perms = liftIO $ FB.runFacebookT appCredentials manager $ do
-        FB.getUserAccessTokenStep1 url (getAsMessagePack perms)
+        FB.getUserAccessTokenStep1 url (map (fromString . show) perms)
 
-      fbLogin2 :: FB.RedirectUrl -> [FB.Argument] -> Server (AsMessagePack FB.UserAccessToken)
+      fbLogin2 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Server (AsMessagePack FB.UserAccessToken)
       fbLogin2 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
         AsMessagePack <$> FB.getUserAccessTokenStep2 url args
+
+      -- fbLogin3 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Server (AsMessagePack FB.UserAccessToken)
+      fbLogin3 url args = liftIO $ runResourceT $ FB.runFacebookT appCredentials manager $ do
+        token <- FB.getUserAccessTokenStep2 url args
+        user <- FB.getUser "me" [] (Just token)
+        return ()
 
   serve 8537 [ method "getUserIdByName" getUserIdByName'
              , method "createUser" createUser'
@@ -95,10 +109,10 @@ authUser' a b c = getAsMessagePack <$> call "authUser" a (AsMessagePack b) (AsMe
 verifySession' :: SessionId -> NominalDiffTime -> Client (Maybe UserId)
 verifySession' sid t = getAsMessagePack <$> call "verifySession" (AsMessagePack sid) (AsMessagePack t)
 
-fbLogin1 :: FB.RedirectUrl -> [FB.Permission] -> Client T.Text
+fbLogin1 :: T.Text -> [T.Text] -> Client T.Text
 fbLogin1 url perms = call "fbLogin1" url (AsMessagePack perms)
 
-fbLogin2 :: FB.RedirectUrl -> [FB.Argument] -> Client FB.UserAccessToken
+fbLogin2 :: T.Text -> [(BS.ByteString, BS.ByteString)] -> Client FB.UserAccessToken
 fbLogin2 url args = getAsMessagePack <$> call "fbLogin2" url args
 
 testClient :: IO ()
