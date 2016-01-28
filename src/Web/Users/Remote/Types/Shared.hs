@@ -7,6 +7,8 @@ import           Data.Proxy
 
 import qualified Data.Text                    as T
 
+import           Purescript.Interop
+
 import           Web.Users.Types              hiding (UserId)
 import           Web.Users.Remote.Types
 
@@ -21,3 +23,12 @@ data UserCommand uinfo uid sid
 
 deriveJSON defaultOptions ''Proxy
 deriveJSON defaultOptions ''UserCommand
+
+mkExports (Just ("module Web.Users.Remote.Types.Shared where"
+                , "ps/Web/Users/Remote/Types/Shared.purs"))
+  [ ''CreateUserError
+  , ''FacebookLoginError
+  , ''UserCommand
+  , ''User
+  , ''Proxy
+  ]
