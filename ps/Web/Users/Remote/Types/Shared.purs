@@ -212,6 +212,35 @@ instance userFromJson :: (FromJSON a) =>  FromJSON (User a) where
         return $ User { u_name : u_name, u_email : u_email, u_password : u_password, u_active : u_active, u_more : u_more }
 
 
+data Password  = PasswordHash Text
+|
+PasswordHidden 
+
+
+instance passwordToJson ::  ToJSON (Password ) where
+  toJSON (PasswordHash x0) = object $
+    [ "tag" .= "PasswordHash"
+    , "contents" .= toJSON x0
+    ]
+  toJSON (PasswordHidden ) = object $
+    [ "tag" .= "PasswordHidden"
+    , "contents" .= ([] :: Array String)
+    ]
+
+
+instance passwordFromJson ::  FromJSON (Password ) where
+  parseJSON (JObject o) = do
+    tag <- o .: "tag"
+    case tag of
+      "PasswordHash" -> do
+         x0 <- o .: "contents"
+         PasswordHash <$> parseJSON x0
+
+      "PasswordHidden" -> do
+         return PasswordHidden
+
+
+
 data Proxy t = Proxy 
 
 

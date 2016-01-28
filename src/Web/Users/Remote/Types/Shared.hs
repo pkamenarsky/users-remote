@@ -30,5 +30,6 @@ mkExports (Just ("module Web.Users.Remote.Types.Shared where"
   , ''FacebookLoginError
   , ''UserCommand
   , ''User
+  , ''Password
   , ''Proxy
   ]
