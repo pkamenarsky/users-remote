@@ -27,17 +27,39 @@ data UserCommand uinfo uid sid
 deriveJSON defaultOptions ''Proxy
 deriveJSON defaultOptions ''UserCommand
 
-mkExports (Just (intercalate "\n"
+mkExports (Just ((intercalate "\n"
   [ "module Web.Users.Remote.Types.Shared where"
   , ""
   , "import Network.WebSockets.Sync.Request"
-  ]
+  , ""
+  ])
+  , (intercalate "\n"
+  [ ""
+  , ""
+  , "instance userToJSON :: (ToJSON a) => ToJSON (User a) where"
+  , "  toJSON (User user) ="
+  , "    object"
+  , "      [ \"name\" .= user.u_name"
+  , "      , \"email\" .= user.u_email"
+  , "      , \"active\" .= user.u_active"
+  , "      , \"more\" .= user.u_more"
+  , "      ]"
+  , ""
+  , "instance userFromJSON :: (FromJSON a) => FromJSON (User a) where"
+  , "  parseJSON (JObject obj) = do"
+  , "    u_name <- obj .: \"name\""
+  , "    u_email <- obj .: \"email\""
+  , "    u_password <- pure PasswordHidden"
+  , "    u_active <- obj .: \"active\""
+  , "    u_more <- obj .: \"more\""
+  , "    return $ User { u_name, u_email, u_password, u_active, u_more }"
+  ])
   , "ps/Web/Users/Remote/Types/Shared.purs"))
 
-  [ ''CreateUserError
-  , ''FacebookLoginError
-  , ''UserCommand
-  , ''User
-  , ''Password
-  , ''SessionId
+  [ (''CreateUserError, True)
+  , (''FacebookLoginError, True)
+  , (''UserCommand, True)
+  , (''Password, True)
+  , (''SessionId, True)
+  , (''User, False)
   ]

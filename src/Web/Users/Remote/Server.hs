@@ -40,13 +40,10 @@ import           Web.Users.Postgresql         ()
 import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
--- "host=localhost port=5432 dbname=postgres connect_timeout=10"
 runVerificationServer :: BS.ByteString -> FB.Credentials -> IO ()
 runVerificationServer url appCredentials = do
   conn <- connectPostgreSQL url
   initUserBackend conn
-
-  manager <- C.newManager C.tlsManagerSettings
 
   let verifySession' :: AsMessagePack SessionId -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe UserId))
       verifySession' sid t = liftIO $ AsMessagePack <$> verifySession conn (getAsMessagePack sid) (getAsMessagePack t)
@@ -117,3 +114,18 @@ runAuthServer proxy cred manager url port = do
   conn <- connectPostgreSQL url
   initUserBackend conn
   runSyncServer port (handleUserCommand proxy conn cred manager)
+
+-- Test server -----------------------------------------------------------------
+
+instance Default String where
+  defaultValue = ""
+
+runTestAuthServer :: IO ()
+runTestAuthServer = do
+  manager <- C.newManager C.tlsManagerSettings
+
+  runAuthServer (undefined :: Proxy String)
+                (FB.Credentials "" "" "")
+                manager
+                "host=localhost port=5432 dbname=postgres connect_timeout=10"
+                8538

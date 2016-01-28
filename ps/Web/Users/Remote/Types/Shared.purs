@@ -2,6 +2,7 @@ module Web.Users.Remote.Types.Shared where
 
 import Network.WebSockets.Sync.Request
 
+
 import Data.JSON
 import Data.Either
 import Data.Maybe
@@ -186,35 +187,6 @@ instance userCommandFromJson :: (FromJSON uinfo, FromJSON uid, FromJSON sid) => 
 
 
 
-data User a = User {
-  u_name :: Text,
-  u_email :: Text,
-  u_password :: Password,
-  u_active :: Boolean,
-  u_more :: a
-}
-
-instance userToJson :: (ToJSON a) =>  ToJSON (User a) where
-  toJSON (User v) = object $
-    [ "tag" .= "User"
-    , "u_name" .= v.u_name
-    , "u_email" .= v.u_email
-    , "u_password" .= v.u_password
-    , "u_active" .= v.u_active
-    , "u_more" .= v.u_more
-    ]
-
-
-instance userFromJson :: (FromJSON a) =>  FromJSON (User a) where
-  parseJSON (JObject o) = do
-        u_name <- o .: "u_name"
-        u_email <- o .: "u_email"
-        u_password <- o .: "u_password"
-        u_active <- o .: "u_active"
-        u_more <- o .: "u_more"
-        return $ User { u_name : u_name, u_email : u_email, u_password : u_password, u_active : u_active, u_more : u_more }
-
-
 data Password  = PasswordHash Text
 |
 PasswordHidden 
@@ -259,3 +231,30 @@ instance sessionIdFromJson ::  FromJSON (SessionId ) where
   parseJSON (JObject o) = do
         unSessionId <- o .: "unSessionId"
         return $ SessionId { unSessionId : unSessionId }
+
+
+data User a = User {
+  u_name :: Text,
+  u_email :: Text,
+  u_password :: Password,
+  u_active :: Boolean,
+  u_more :: a
+}
+
+instance userToJSON :: (ToJSON a) => ToJSON (User a) where
+  toJSON (User user) =
+    object
+      [ "name" .= user.u_name
+      , "email" .= user.u_email
+      , "active" .= user.u_active
+      , "more" .= user.u_more
+      ]
+
+instance userFromJSON :: (FromJSON a) => FromJSON (User a) where
+  parseJSON (JObject obj) = do
+    u_name <- obj .: "name"
+    u_email <- obj .: "email"
+    u_password <- pure PasswordHidden
+    u_active <- obj .: "active"
+    u_more <- obj .: "more"
+    return $ User { u_name, u_email, u_password, u_active, u_more }
