@@ -1,6 +1,5 @@
 module Web.Users.Remote.Types.Shared where
 
-import Common
 import Data.JSON
 import Data.Either
 import Data.Maybe
