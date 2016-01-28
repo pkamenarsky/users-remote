@@ -27,6 +27,7 @@ import qualified Facebook                     as FB
 import qualified Network.HTTP.Conduit         as C
 import           Network.MessagePack.Server
 import           Network.MessagePack.Client
+import           Network.WebSockets.Sync
 
 import           System.Random
 
@@ -34,6 +35,7 @@ import           Web.Users.Types              hiding (UserId)
 import           Web.Users.Postgresql         ()
 
 import           Web.Users.Remote.Types
+import           Web.Users.Remote.Types.Shared
 
 -- "host=localhost port=5432 dbname=postgres connect_timeout=10"
 runServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> BS.ByteString -> FB.Credentials -> IO ()
@@ -110,3 +112,13 @@ runServer _ url appCredentials = do
              , method "facebookLoginUrl" facebookLoginUrl
              , method "facebookLogin" facebookLogin
              ]
+
+runUsersServer :: BS.ByteString -> IO ()
+runUsersServer url = do
+  conn <- connectPostgreSQL url
+  initUserBackend conn
+
+  let request (VerifySession sid r) = (r, verifySession conn sid 0)
+
+  runSyncServer 8538 request
+
