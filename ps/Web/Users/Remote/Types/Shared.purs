@@ -1,5 +1,7 @@
 module Web.Users.Remote.Types.Shared where
 
+import Network.WebSockets.Sync.Request
+
 import Data.JSON
 import Data.Either
 import Data.Maybe
@@ -239,22 +241,6 @@ instance passwordFromJson ::  FromJSON (Password ) where
 
       "PasswordHidden" -> do
          return PasswordHidden
-
-
-
-data Proxy t = Proxy 
-
-
-instance proxyToJson :: (ToJSON t) =>  ToJSON (Proxy t) where
-  toJSON (Proxy ) = object $
-    [ "tag" .= "Proxy"
-    , "contents" .= ([] :: Array String)
-    ]
-
-
-instance proxyFromJson :: (FromJSON t) =>  FromJSON (Proxy t) where
-  parseJSON (JObject o) = do
-         return Proxy
 
 
 

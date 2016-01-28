@@ -5,6 +5,7 @@ module Web.Users.Remote.Types.Shared where
 import           Data.Aeson.TH
 import           Data.Proxy
 
+import           Data.List                    (intercalate)
 import qualified Data.Text                    as T
 
 import qualified Facebook                     as FB
@@ -26,13 +27,17 @@ data UserCommand uinfo uid sid
 deriveJSON defaultOptions ''Proxy
 deriveJSON defaultOptions ''UserCommand
 
-mkExports (Just ("module Web.Users.Remote.Types.Shared where"
-                , "ps/Web/Users/Remote/Types/Shared.purs"))
+mkExports (Just (intercalate "\n"
+  [ "module Web.Users.Remote.Types.Shared where"
+  , ""
+  , "import Network.WebSockets.Sync.Request"
+  ]
+  , "ps/Web/Users/Remote/Types/Shared.purs"))
+
   [ ''CreateUserError
   , ''FacebookLoginError
   , ''UserCommand
   , ''User
   , ''Password
-  , ''Proxy
   , ''SessionId
   ]
