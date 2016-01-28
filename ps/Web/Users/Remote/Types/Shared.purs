@@ -9,6 +9,8 @@ import Data.Set (Set ())
 import Control.Monad.Aff
 import Prelude
 
+type Text = String
+
 data CreateUserError  = UsernameOrEmailAlreadyTaken 
 |
 InvalidPassword 
@@ -114,7 +116,7 @@ AuthFacebook Text (Array  ((Tuple  Text) Text)) Int (Proxy ((Either FacebookLogi
 |
 GetUserById uid (Proxy (Maybe (User (UserInfo uinfo))))
 |
-Logout SessionId (Proxy Tuple0 )
+Logout SessionId (Proxy Unit )
 
 
 instance userCommandToJson :: (ToJSON uinfo, ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand uinfo uid sid) where
@@ -254,3 +256,170 @@ instance proxyFromJson :: (FromJSON t) =>  FromJSON (Proxy t) where
   parseJSON (JObject o) = do
          return Proxy
 
+
+
+newtype SessionId  = SessionId {
+  unSessionId :: Text
+}
+
+instance sessionIdToJson ::  ToJSON (SessionId ) where
+  toJSON (SessionId x) = toJSON x
+
+instance sessionIdFromJson ::  FromJSON (SessionId ) where
+  parseJSON x = SessionId <$> parseJSON x
+
+type UserInfo a = ((Tuple  a) UserProviderInfo)
+
+
+
+
+
+data UserProviderInfo  = FacebookInfo User
+|
+None 
+
+
+instance userProviderInfoToJson ::  ToJSON (UserProviderInfo ) where
+  toJSON (FacebookInfo x0) = object $
+    [ "tag" .= "FacebookInfo"
+    , "contents" .= toJSON x0
+    ]
+  toJSON (None ) = object $
+    [ "tag" .= "None"
+    , "contents" .= ([] :: Array String)
+    ]
+
+
+instance userProviderInfoFromJson ::  FromJSON (UserProviderInfo ) where
+  parseJSON (JObject o) = do
+    tag <- o .: "tag"
+    case tag of
+      "FacebookInfo" -> do
+         x0 <- o .: "contents"
+         FacebookInfo <$> parseJSON x0
+
+      "None" -> do
+         return None
+
+
+
+data GeoCoordinates  = GeoCoordinates {
+  latitude :: Double,
+  longitude :: Double
+}
+
+instance geoCoordinatesToJson ::  ToJSON (GeoCoordinates ) where
+  toJSON (GeoCoordinates v) = object $
+    [ "tag" .= "GeoCoordinates"
+    , "latitude" .= v.latitude
+    , "longitude" .= v.longitude
+    ]
+
+
+instance geoCoordinatesFromJson ::  FromJSON (GeoCoordinates ) where
+  parseJSON (JObject o) = do
+        latitude <- o .: "latitude"
+        longitude <- o .: "longitude"
+        return $ GeoCoordinates { latitude : latitude, longitude : longitude }
+
+
+data Location  = Location {
+  locationStreet :: (Maybe Text),
+  locationCity :: (Maybe Text),
+  locationState :: (Maybe Text),
+  locationCountry :: (Maybe Text),
+  locationZip :: (Maybe Text),
+  locationCoords :: (Maybe GeoCoordinates)
+}
+
+instance locationToJson ::  ToJSON (Location ) where
+  toJSON (Location v) = object $
+    [ "tag" .= "Location"
+    , "locationStreet" .= v.locationStreet
+    , "locationCity" .= v.locationCity
+    , "locationState" .= v.locationState
+    , "locationCountry" .= v.locationCountry
+    , "locationZip" .= v.locationZip
+    , "locationCoords" .= v.locationCoords
+    ]
+
+
+instance locationFromJson ::  FromJSON (Location ) where
+  parseJSON (JObject o) = do
+        locationStreet <- o .: "locationStreet"
+        locationCity <- o .: "locationCity"
+        locationState <- o .: "locationState"
+        locationCountry <- o .: "locationCountry"
+        locationZip <- o .: "locationZip"
+        locationCoords <- o .: "locationCoords"
+        return $ Location { locationStreet : locationStreet, locationCity : locationCity, locationState : locationState, locationCountry : locationCountry, locationZip : locationZip, locationCoords : locationCoords }
+
+
+data Place  = Place {
+  placeId :: Id,
+  placeName :: (Maybe Text),
+  placeLocation :: (Maybe Location)
+}
+
+instance placeToJson ::  ToJSON (Place ) where
+  toJSON (Place v) = object $
+    [ "tag" .= "Place"
+    , "placeId" .= v.placeId
+    , "placeName" .= v.placeName
+    , "placeLocation" .= v.placeLocation
+    ]
+
+
+instance placeFromJson ::  FromJSON (Place ) where
+  parseJSON (JObject o) = do
+        placeId <- o .: "placeId"
+        placeName <- o .: "placeName"
+        placeLocation <- o .: "placeLocation"
+        return $ Place { placeId : placeId, placeName : placeName, placeLocation : placeLocation }
+
+
+data User  = User {
+  userId :: UserId,
+  userName :: (Maybe Text),
+  userFirstName :: (Maybe Text),
+  userMiddleName :: (Maybe Text),
+  userLastName :: (Maybe Text),
+  userGender :: (Maybe Gender),
+  userLocale :: (Maybe Text),
+  userUsername :: (Maybe Text),
+  userVerified :: (Maybe Boolean),
+  userEmail :: (Maybe Text),
+  userLocation :: (Maybe Place)
+}
+
+instance userToJson ::  ToJSON (User ) where
+  toJSON (User v) = object $
+    [ "tag" .= "User"
+    , "userId" .= v.userId
+    , "userName" .= v.userName
+    , "userFirstName" .= v.userFirstName
+    , "userMiddleName" .= v.userMiddleName
+    , "userLastName" .= v.userLastName
+    , "userGender" .= v.userGender
+    , "userLocale" .= v.userLocale
+    , "userUsername" .= v.userUsername
+    , "userVerified" .= v.userVerified
+    , "userEmail" .= v.userEmail
+    , "userLocation" .= v.userLocation
+    ]
+
+
+instance userFromJson ::  FromJSON (User ) where
+  parseJSON (JObject o) = do
+        userId <- o .: "userId"
+        userName <- o .: "userName"
+        userFirstName <- o .: "userFirstName"
+        userMiddleName <- o .: "userMiddleName"
+        userLastName <- o .: "userLastName"
+        userGender <- o .: "userGender"
+        userLocale <- o .: "userLocale"
+        userUsername <- o .: "userUsername"
+        userVerified <- o .: "userVerified"
+        userEmail <- o .: "userEmail"
+        userLocation <- o .: "userLocation"
+        return $ User { userId : userId, userName : userName, userFirstName : userFirstName, userMiddleName : userMiddleName, userLastName : userLastName, userGender : userGender, userLocale : userLocale, userUsername : userUsername, userVerified : userVerified, userEmail : userEmail, userLocation : userLocation }

@@ -7,6 +7,8 @@ import           Data.Proxy
 
 import qualified Data.Text                    as T
 
+import qualified Facebook                     as FB
+
 import           Purescript.Interop
 
 import           Web.Users.Types              hiding (UserId)
@@ -32,4 +34,12 @@ mkExports (Just ("module Web.Users.Remote.Types.Shared where"
   , ''User
   , ''Password
   , ''Proxy
+  , ''SessionId
+  , ''UserInfo
+  , ''UserProviderInfo
+
+  , ''FB.GeoCoordinates
+  , ''FB.Location
+  , ''FB.Place
+  , ''FB.User
   ]
