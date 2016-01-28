@@ -118,7 +118,7 @@ runUsersServer url = do
   conn <- connectPostgreSQL url
   initUserBackend conn
 
-  let request (VerifySession sid r) = (r, verifySession conn sid 0)
+  let request (VerifySession sid r)   = respond r <$> verifySession conn sid 0
+      request (AuthUser name pwd t r) = respond r <$> authUser conn name (PasswordPlain pwd) (fromIntegral t)
 
   runSyncServer 8538 request
-
