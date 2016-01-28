@@ -20,7 +20,7 @@ data UserCommand uinfo uid sid
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] Int (Proxy (Either FacebookLoginError sid))
-  | GetUserById uid (Proxy (Maybe (User (UserInfo uinfo))))
+  | GetUserById uid (Proxy (Maybe (User uinfo)))
   | Logout SessionId (Proxy ())
 
 deriveJSON defaultOptions ''Proxy
@@ -35,11 +35,4 @@ mkExports (Just ("module Web.Users.Remote.Types.Shared where"
   , ''Password
   , ''Proxy
   , ''SessionId
-  , ''UserInfo
-  , ''UserProviderInfo
-
-  , ''FB.GeoCoordinates
-  , ''FB.Location
-  , ''FB.Place
-  , ''FB.User
   ]

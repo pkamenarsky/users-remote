@@ -109,7 +109,8 @@ handleUserCommand _ conn cred manager (CreateUser user pwd r) = respond r <$> do
   createUser conn (user { u_password = makePassword (PasswordPlain pwd), u_more = (u_more user, None)})
 
 handleUserCommand _ conn cred manager (GetUserById uid r) = respond r <$> do
-  getUserById conn uid
+  user <- getUserById conn uid
+  return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
 
 runAuthServer :: (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> BS.ByteString -> Int -> IO ()
 runAuthServer proxy cred manager url port = do
