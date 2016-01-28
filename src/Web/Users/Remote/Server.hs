@@ -6,6 +6,7 @@
 
 module Web.Users.Remote.Server where
 
+import           Control.Arrow
 import           Control.Monad.IO.Class
 import           Control.Monad.Trans.Resource
 import           Control.Monad
@@ -18,6 +19,7 @@ import           Data.Maybe
 import           Data.Proxy
 import           Data.String
 import qualified Data.Text                    as T
+import qualified Data.Text.Encoding           as TE
 import           Data.Time.Clock
 
 import           Database.PostgreSQL.Simple
@@ -32,93 +34,85 @@ import           Network.WebSockets.Sync
 import           System.Random
 
 import           Web.Users.Types              hiding (UserId)
+import qualified Web.Users.Types              as U
 import           Web.Users.Postgresql         ()
 
 import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
 -- "host=localhost port=5432 dbname=postgres connect_timeout=10"
-runServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> BS.ByteString -> FB.Credentials -> IO ()
-runServer _ url appCredentials = do
+runVerificationServer :: BS.ByteString -> FB.Credentials -> IO ()
+runVerificationServer url appCredentials = do
   conn <- connectPostgreSQL url
   initUserBackend conn
 
   manager <- C.newManager C.tlsManagerSettings
 
-  let getUserIdByName' :: T.Text -> Server (AsMessagePack (Maybe UserId))
-      getUserIdByName' n = liftIO $ AsMessagePack <$> getUserIdByName conn n
-
-      createUser' :: (FromJSON a, ToJSON a) => AsMessagePack (User a) -> AsMessagePack Password -> Server (AsMessagePack (Either CreateUserError UserId))
-      createUser' user pwd = liftIO $ AsMessagePack <$> createUser conn (user' { u_password = getAsMessagePack pwd, u_more = (u_more user', None)})
-        where user' = getAsMessagePack user
-
-      getUserById' :: (FromJSON a, ToJSON a) => AsMessagePack UserId -> Server (AsMessagePack (Maybe (User (UserInfo a))))
-      getUserById' uid = liftIO $ AsMessagePack <$> getUserById conn (getAsMessagePack uid)
-
-      authUser' :: T.Text -> AsMessagePack PasswordPlain -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe SessionId))
-      authUser' name pwd t =
-        liftIO $ AsMessagePack . join <$> withAuthUser conn name verifyUser createSession'
-          where
-            createSession' uid = createSession conn uid (getAsMessagePack t)
-
-            -- don't allow facebook users to login with a password
-            verifyUser :: User (UserInfo a) -> Bool
-            verifyUser user = case u_more user of
-              (_, None) -> verifyPassword (getAsMessagePack pwd) $ u_password user
-              (_, FacebookInfo _) -> False
-
-      verifySession' :: AsMessagePack SessionId -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe UserId))
+  let verifySession' :: AsMessagePack SessionId -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe UserId))
       verifySession' sid t = liftIO $ AsMessagePack <$> verifySession conn (getAsMessagePack sid) (getAsMessagePack t)
 
-      facebookLoginUrl :: T.Text -> [T.Text] -> Server T.Text
-      facebookLoginUrl url perms = liftIO $ FB.runFacebookT appCredentials manager $ do
-        FB.getUserAccessTokenStep1 url (map (fromString . show) $ perms ++ ["email"])
+  serve 8537 [ method "verifySession" verifySession' ]
 
-      facebookLogin :: T.Text -> [(BS.ByteString, BS.ByteString)] -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Either FacebookLoginError SessionId))
-      facebookLogin url args t = liftIO $ do
+handleUserCommand :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo, Default uinfo)
+                  => Proxy uinfo
+                  -> conn
+                  -> FB.Credentials
+                  -> C.Manager
+                  -> UserCommand uinfo (U.UserId conn) SessionId
+                  -> IO Value
+handleUserCommand _ conn _ _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
 
-        -- try to fetch facebook user
-        fbUser <- runResourceT $ FB.runFacebookT appCredentials manager $ do
-          token <- FB.getUserAccessTokenStep2 url args
-          FB.getUser "me" [] (Just token)
+handleUserCommand _ conn _ _ (AuthUser name pwd t r) = respond r <$> do
+  join <$> withAuthUser conn name verifyUser createSession'
+    where
+      createSession' uid = createSession conn uid (fromIntegral t)
 
-        AsMessagePack <$> case FB.userEmail fbUser of
-          Just email -> do
-            uid <- getUserIdByName conn email
+      -- don't allow facebook users to login with a password
+      verifyUser :: User (UserInfo uinfo) -> Bool
+      verifyUser user = case u_more user of
+        (_, None) -> verifyPassword (PasswordPlain pwd) $ u_password user
+        (_, FacebookInfo _) -> False
 
-            case uid of
-              Just uid -> do
-                sid <- createSession conn uid (getAsMessagePack t)
-                return $ maybe (Left CreateSessionError) Right sid
-              Nothing  -> do
-                -- create random password just in case
-                g <- newStdGen
-                let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
-                uid <- createUser conn (User email email (makePassword pwd) True ((defaultValue :: a), FacebookInfo fbUser))
+handleUserCommand _ _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
+  FB.runFacebookT cred manager $
+    FB.getUserAccessTokenStep1 url (map (fromString . show) $ perms ++ ["email"])
 
-                case uid of
-                  Left e -> return $ Left $ CreateUserError e
-                  Right uid -> do
-                    sid <- createSession conn uid (getAsMessagePack t)
-                    return $ maybe (Left CreateSessionError) Right sid
+handleUserCommand _ conn cred manager (AuthFacebook url args t r) = respond r <$> do
+  -- try to fetch facebook user
+  fbUser <- runResourceT $ FB.runFacebookT cred manager $ do
+    token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
+    FB.getUser "me" [] (Just token)
 
-          Nothing -> return $ Left UserEmailEmptyError
+  case FB.userEmail fbUser of
+    Just email -> do
+      uid <- getUserIdByName conn email
 
-  serve 8537 [ method "getUserIdByName" getUserIdByName'
-             , method "createUser" createUser'
-             , method "getUserById" getUserById'
-             , method "authUser" authUser'
-             , method "verifySession" verifySession'
-             , method "facebookLoginUrl" facebookLoginUrl
-             , method "facebookLogin" facebookLogin
-             ]
+      case uid of
+        Just uid -> do
+          sid <- createSession conn uid (fromIntegral t)
+          return $ maybe (Left CreateSessionError) Right sid
+        Nothing  -> do
+          -- create random password just in case
+          g <- newStdGen
+          let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
+          uid <- createUser conn (User email email (makePassword pwd) True ((defaultValue :: uinfo), FacebookInfo fbUser))
 
-runUsersServer :: BS.ByteString -> IO ()
-runUsersServer url = do
+          case uid of
+            Left e -> return $ Left $ CreateUserError e
+            Right uid -> do
+              sid <- createSession conn uid (fromIntegral t)
+              return $ maybe (Left CreateSessionError) Right sid
+
+    Nothing -> return $ Left UserEmailEmptyError
+
+handleUserCommand _ conn cred manager (CreateUser user pwd r) = respond r <$> do
+  createUser conn (user { u_password = makePassword (PasswordPlain pwd), u_more = (u_more user, None)})
+
+handleUserCommand _ conn cred manager (GetUserById uid r) = respond r <$> do
+  getUserById conn uid
+
+runAuthServer :: (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> BS.ByteString -> Int -> IO ()
+runAuthServer proxy cred manager url port = do
   conn <- connectPostgreSQL url
   initUserBackend conn
-
-  let request (VerifySession sid r)   = respond r <$> verifySession conn sid 0
-      request (AuthUser name pwd t r) = respond r <$> authUser conn name (PasswordPlain pwd) (fromIntegral t)
-
-  runSyncServer 8538 request
+  runSyncServer port (handleUserCommand proxy conn cred manager)

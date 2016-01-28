@@ -10,11 +10,14 @@ import qualified Data.Text                    as T
 import           Web.Users.Types              hiding (UserId)
 import           Web.Users.Remote.Types
 
-data UserCommand = VerifySession SessionId (Proxy (Maybe UserId))
-                 | AuthUser T.Text T.Text Int (Proxy (Maybe SessionId))
-                 | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
-                 | AuthFacebook T.Text [(T.Text, T.Text)] Int (Proxy (Either FacebookLoginError SessionId))
-                 | Logout SessionId (Proxy ())
+data UserCommand uinfo uid sid
+  = VerifySession SessionId (Proxy (Maybe uid))
+  | CreateUser (User uinfo) T.Text (Proxy (Either CreateUserError uid))
+  | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
+  | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
+  | AuthFacebook T.Text [(T.Text, T.Text)] Int (Proxy (Either FacebookLoginError sid))
+  | GetUserById uid (Proxy (Maybe (User (UserInfo uinfo))))
+  | Logout SessionId (Proxy ())
 
 deriveJSON defaultOptions ''Proxy
 deriveJSON defaultOptions ''UserCommand
