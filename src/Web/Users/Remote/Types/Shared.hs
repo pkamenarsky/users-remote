@@ -7,6 +7,7 @@ import           Data.Proxy
 
 import           Data.List                    (intercalate)
 import qualified Data.Text                    as T
+import           Data.Time.Clock
 
 import qualified Facebook                     as FB
 
@@ -24,8 +25,22 @@ data UserCommand uinfo uid sid
   | GetUserById uid (Proxy (Maybe (User uinfo)))
   | Logout SessionId (Proxy ())
 
-deriveJSON defaultOptions ''Proxy
-deriveJSON defaultOptions ''UserCommand
+deriveJSON options ''Proxy
+deriveJSON options ''UserCommand
+
+deriveJSON options ''CreateUserError
+deriveJSON options ''NominalDiffTime
+deriveJSON options ''PasswordPlain
+deriveJSON options ''Password
+
+deriveToJSON options ''FB.GeoCoordinates
+deriveToJSON options ''FB.Location
+deriveToJSON options ''FB.Place
+deriveToJSON options ''FB.User
+
+deriveJSON options ''UserProviderInfo
+
+deriveJSON options ''FacebookLoginError
 
 mkExports (Just ((intercalate "\n"
   [ "module Web.Users.Remote.Types.Shared where"
