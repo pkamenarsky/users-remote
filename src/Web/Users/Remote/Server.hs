@@ -16,6 +16,7 @@ import qualified Data.ByteString.Lazy        as B
 import qualified Data.ByteString             as BS
 import           Data.MessagePack.Aeson
 import           Data.Maybe
+import           Data.Monoid                 ((<>))
 import           Data.Proxy
 import           Data.String
 import qualified Data.Text                    as T
@@ -72,7 +73,7 @@ handleUserCommand _ conn _ _ (AuthUser name pwd t r) = respond r <$> do
 
 handleUserCommand _ _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
   FB.runFacebookT cred manager $
-    FB.getUserAccessTokenStep1 url (map (fromString . show) $ perms ++ ["email"])
+    FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
 handleUserCommand _ conn cred manager (AuthFacebook url args t r) = respond r <$> do
   -- try to fetch facebook user
@@ -80,27 +81,25 @@ handleUserCommand _ conn cred manager (AuthFacebook url args t r) = respond r <$
     token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
     FB.getUser "me" [] (Just token)
 
-  case FB.userEmail fbUser of
-    Just email -> do
-      uid <- getUserIdByName conn email
+  let fbUserName = FB.appId cred <> FB.idCode (FB.userId fbUser)
+
+  uid <- getUserIdByName conn fbUserName
+
+  case uid of
+    Just uid -> do
+      sid <- createSession conn uid (fromIntegral t)
+      return $ maybe (Left CreateSessionError) Right sid
+    Nothing  -> do
+      -- create random password just in case
+      g <- newStdGen
+      let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
+      uid <- createUser conn (User fbUserName (fromMaybe "" $ FB.userEmail fbUser) (makePassword pwd) True ((defaultValue :: uinfo), FacebookInfo fbUser))
 
       case uid of
-        Just uid -> do
+        Left e -> return $ Left $ CreateUserError e
+        Right uid -> do
           sid <- createSession conn uid (fromIntegral t)
           return $ maybe (Left CreateSessionError) Right sid
-        Nothing  -> do
-          -- create random password just in case
-          g <- newStdGen
-          let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
-          uid <- createUser conn (User email email (makePassword pwd) True ((defaultValue :: uinfo), FacebookInfo fbUser))
-
-          case uid of
-            Left e -> return $ Left $ CreateUserError e
-            Right uid -> do
-              sid <- createSession conn uid (fromIntegral t)
-              return $ maybe (Left CreateSessionError) Right sid
-
-    Nothing -> return $ Left UserEmailEmptyError
 
 handleUserCommand _ conn cred manager (CreateUser user pwd r) = respond r <$> do
   createUser conn (user { u_password = makePassword (PasswordPlain pwd), u_more = (u_more user, None)})
@@ -120,12 +119,12 @@ runAuthServer proxy cred manager url port = do
 instance Default String where
   defaultValue = ""
 
-runTestAuthServer :: IO ()
-runTestAuthServer = do
+runTestAuthServer :: T.Text -> T.Text -> T.Text -> IO ()
+runTestAuthServer appName appId appSecret = do
   manager <- C.newManager C.tlsManagerSettings
 
   runAuthServer (undefined :: Proxy String)
-                (FB.Credentials "" "" "")
+                (FB.Credentials appName appId appSecret)
                 manager
                 "host=localhost port=5432 dbname=postgres connect_timeout=10"
                 8538
