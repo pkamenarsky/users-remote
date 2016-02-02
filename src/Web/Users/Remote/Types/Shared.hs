@@ -68,6 +68,14 @@ mkExports (Just ((intercalate "\n"
   , "    u_active <- obj .: \"active\""
   , "    u_more <- obj .: \"more\""
   , "    return $ User { u_name, u_email, u_password, u_active, u_more }"
+  , ""
+  , "instance sessionIdToJson ::  ToJSON (SessionId ) where"
+  , "  toJSON (SessionId v) = toJSON v.unSessionId"
+  , ""
+  , "instance sessionIdFromJson ::  FromJSON (SessionId ) where"
+  , "  parseJSON (JString v) = return $ SessionId { unSessionId : v }"
+  , "  parseJSON _ = fail \"Could not parse SessionId\""
+  , ""
   ])
   , "ps/Web/Users/Remote/Types/Shared.purs"))
 
@@ -75,6 +83,6 @@ mkExports (Just ((intercalate "\n"
   , (''FacebookLoginError, True)
   , (''UserCommand, True)
   , (''Password, True)
-  , (''SessionId, True)
+  , (''SessionId, False)
   , (''User, False)
   ]

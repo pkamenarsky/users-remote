@@ -220,19 +220,6 @@ newtype SessionId  = SessionId {
   unSessionId :: Text
 }
 
-instance sessionIdToJson ::  ToJSON (SessionId ) where
-  toJSON (SessionId v) = object $
-    [ "tag" .= "SessionId"
-    , "unSessionId" .= v.unSessionId
-    ]
-
-
-instance sessionIdFromJson ::  FromJSON (SessionId ) where
-  parseJSON (JObject o) = do
-        unSessionId <- o .: "unSessionId"
-        return $ SessionId { unSessionId : unSessionId }
-
-
 data User a = User {
   u_name :: Text,
   u_email :: Text,
@@ -258,3 +245,10 @@ instance userFromJSON :: (FromJSON a) => FromJSON (User a) where
     u_active <- obj .: "active"
     u_more <- obj .: "more"
     return $ User { u_name, u_email, u_password, u_active, u_more }
+
+instance sessionIdToJson ::  ToJSON (SessionId ) where
+  toJSON (SessionId v) = toJSON v.unSessionId
+
+instance sessionIdFromJson ::  FromJSON (SessionId ) where
+  parseJSON (JString v) = return $ SessionId { unSessionId : v }
+  parseJSON _ = fail "Could not parse SessionId"
