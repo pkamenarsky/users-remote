@@ -23,7 +23,9 @@ source-repository head
 
 library
   exposed-modules:     Web.Users.Remote.Server,
-                       Web.Users.Remote.Client
+                       Web.Users.Remote.Client,
+                       Web.Users.Remote.Types,
+                       Web.Users.Remote.Types.Shared
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.8 && <4.9,
