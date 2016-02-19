@@ -14,7 +14,6 @@ import           Control.Monad
 import           Data.Aeson
 import qualified Data.ByteString.Lazy        as B
 import qualified Data.ByteString             as BS
-import           Data.MessagePack.Aeson
 import           Data.Maybe
 import           Data.Monoid                 ((<>))
 import           Data.Proxy
@@ -28,8 +27,6 @@ import           Database.PostgreSQL.Simple
 import qualified Facebook                     as FB
 
 import qualified Network.HTTP.Conduit         as C
-import           Network.MessagePack.Server
-import           Network.MessagePack.Client
 import           Network.WebSockets.Sync
 
 import           System.Random
@@ -40,16 +37,6 @@ import           Web.Users.Postgresql         ()
 
 import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
-
-runVerificationServer :: BS.ByteString -> FB.Credentials -> IO ()
-runVerificationServer url appCredentials = do
-  conn <- connectPostgreSQL url
-  initUserBackend conn
-
-  let verifySession' :: AsMessagePack SessionId -> AsMessagePack NominalDiffTime -> Server (AsMessagePack (Maybe UserId))
-      verifySession' sid t = liftIO $ AsMessagePack <$> verifySession conn (getAsMessagePack sid) (getAsMessagePack t)
-
-  serve 8537 [ method "verifySession" verifySession' ]
 
 handleUserCommand :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo, Default uinfo)
                   => Proxy uinfo
