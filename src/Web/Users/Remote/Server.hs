@@ -39,15 +39,14 @@ import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
 handleUserCommand :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo, Default uinfo)
-                  => Proxy uinfo
-                  -> conn
+                  => conn
                   -> FB.Credentials
                   -> C.Manager
                   -> UserCommand uinfo (U.UserId conn) SessionId
                   -> IO Value
-handleUserCommand _ conn _ _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
+handleUserCommand conn _ _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
 
-handleUserCommand _ conn _ _ (AuthUser name pwd t r) = respond r <$> do
+handleUserCommand conn _ _ (AuthUser name pwd t r) = respond r <$> do
   join <$> withAuthUser conn name verifyUser createSession'
     where
       createSession' uid = createSession conn uid (fromIntegral t)
@@ -58,11 +57,11 @@ handleUserCommand _ conn _ _ (AuthUser name pwd t r) = respond r <$> do
         (_, None) -> verifyPassword (PasswordPlain pwd) $ u_password user
         (_, FacebookInfo _) -> False
 
-handleUserCommand _ _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
+handleUserCommand _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
   FB.runFacebookT cred manager $
     FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
-handleUserCommand _ conn cred manager (AuthFacebook url args t r) = respond r <$> do
+handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> do
   -- try to fetch facebook user
   fbUser <- runResourceT $ FB.runFacebookT cred manager $ do
     token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
@@ -88,18 +87,18 @@ handleUserCommand _ conn cred manager (AuthFacebook url args t r) = respond r <$
           sid <- createSession conn uid (fromIntegral t)
           return $ maybe (Left CreateSessionError) Right sid
 
-handleUserCommand _ conn cred manager (CreateUser user pwd r) = respond r <$> do
+handleUserCommand conn cred manager (CreateUser user pwd r) = respond r <$> do
   createUser conn (user { u_password = makePassword (PasswordPlain pwd), u_more = (u_more user, None)})
 
-handleUserCommand _ conn cred manager (GetUserById uid r) = respond r <$> do
+handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
   user <- getUserById conn uid
   return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
 
-runAuthServer :: (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> BS.ByteString -> Int -> IO ()
+runAuthServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> BS.ByteString -> Int -> IO ()
 runAuthServer proxy cred manager url port = do
   conn <- connectPostgreSQL url
   initUserBackend conn
-  runSyncServer port (handleUserCommand proxy conn cred manager)
+  runSyncServer port (handleUserCommand conn cred manager :: UserCommand a (U.UserId Connection) SessionId -> IO Value)
 
 -- Test server -----------------------------------------------------------------
 
