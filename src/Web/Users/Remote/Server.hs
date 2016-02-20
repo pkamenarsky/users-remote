@@ -94,9 +94,8 @@ handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
   user <- getUserById conn uid
   return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
 
-runAuthServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> BS.ByteString -> Int -> IO ()
-runAuthServer proxy cred manager url port = do
-  conn <- connectPostgreSQL url
+runAuthServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> Connection -> Int -> IO ()
+runAuthServer proxy cred manager conn port = do
   initUserBackend conn
   runSyncServer port (handleUserCommand conn cred manager :: UserCommand a (U.UserId Connection) SessionId -> IO Value)
 
@@ -108,9 +107,10 @@ instance Default String where
 runTestAuthServer :: T.Text -> T.Text -> T.Text -> IO ()
 runTestAuthServer appName appId appSecret = do
   manager <- C.newManager C.tlsManagerSettings
+  conn <- connectPostgreSQL "host=localhost port=5432 dbname=postgres connect_timeout=10"
 
   runAuthServer (undefined :: Proxy String)
                 (FB.Credentials appName appId appSecret)
                 manager
-                "host=localhost port=5432 dbname=postgres connect_timeout=10"
+                conn
                 8538
