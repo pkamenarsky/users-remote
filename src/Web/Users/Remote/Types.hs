@@ -4,6 +4,7 @@ module Web.Users.Remote.Types where
 
 import           Data.Aeson.TH
 import           Data.Int
+import qualified Data.Text                    as T
 
 import qualified Facebook                     as FB
 
@@ -16,8 +17,9 @@ options = defaultOptions { allNullaryToStringTag = False }
 class Default a where
   defaultValue :: a
 
-data UserProviderInfo = FacebookInfo FB.User
+data UserProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
                       | None
+                      deriving Show
 
 type UserInfo a = (a, UserProviderInfo)
 

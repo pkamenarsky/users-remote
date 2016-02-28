@@ -33,11 +33,6 @@ deriveJSON options ''NominalDiffTime
 deriveJSON options ''PasswordPlain
 deriveJSON options ''Password
 
-deriveToJSON options ''FB.GeoCoordinates
-deriveToJSON options ''FB.Location
-deriveToJSON options ''FB.Place
-deriveToJSON options ''FB.User
-
 deriveJSON options ''UserProviderInfo
 
 deriveJSON options ''FacebookLoginError

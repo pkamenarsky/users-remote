@@ -39,7 +39,7 @@ import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
 -- FIXME: find a better solution for internal user data
-getInternalUserById :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo) => conn -> U.UserId conn -> IO (Maybe (User uinfo))
+getInternalUserById :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo) => conn -> U.UserId conn -> IO (Maybe (U.User uinfo))
 getInternalUserById conn uid = do
   user <- getUserById conn uid
   return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
@@ -61,7 +61,7 @@ handleUserCommand conn _ _ (AuthUser name pwd t r) = respond r <$> do
       verifyUser :: User (UserInfo uinfo) -> Bool
       verifyUser user = case u_more user of
         (_, None) -> verifyPassword (PasswordPlain pwd) $ u_password user
-        (_, FacebookInfo _) -> False
+        (_, FacebookInfo _ _) -> False
 
 handleUserCommand _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
   FB.runFacebookT cred manager $
@@ -85,7 +85,7 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
       -- create random password just in case
       g <- newStdGen
       let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
-      uid <- createUser conn (User fbUserName (fromMaybe "" $ FB.userEmail fbUser) (makePassword pwd) True ((defaultValue :: uinfo), FacebookInfo fbUser))
+      uid <- createUser conn (User fbUserName (fromMaybe "" $ FB.userEmail fbUser) (makePassword pwd) True ((defaultValue :: uinfo), FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser)))
 
       case uid of
         Left e -> return $ Left $ CreateUserError e
