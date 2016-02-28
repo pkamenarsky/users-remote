@@ -38,6 +38,12 @@ import           Web.Users.Postgresql         ()
 import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
+-- FIXME: find a better solution for internal user data
+getInternalUserById :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo) => conn -> U.UserId conn -> IO (Maybe (User uinfo))
+getInternalUserById conn uid = do
+  user <- getUserById conn uid
+  return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
+
 handleUserCommand :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo, Default uinfo)
                   => conn
                   -> FB.Credentials
