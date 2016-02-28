@@ -94,7 +94,7 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
           return $ maybe (Left CreateSessionError) Right sid
 
 handleUserCommand conn cred manager (CreateUser user pwd r) = respond r <$> do
-  createUser conn (user { u_password = makePassword (PasswordPlain pwd), u_more = (u_more user, None)})
+  createUser conn (user { u_password = makePassword (PasswordPlain pwd), u_more = (defaultValue :: uinfo, None)})
 
 handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
   user <- getUserById conn uid
