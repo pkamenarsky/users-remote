@@ -100,6 +100,9 @@ handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
   user <- getUserById conn uid
   return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
 
+handleUserCommand conn cred manager (Logout sid r) = respond r <$> do
+  destroySession conn sid
+
 runAuthServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> Connection -> Int -> IO ()
 runAuthServer proxy cred manager conn port = do
   initUserBackend conn
