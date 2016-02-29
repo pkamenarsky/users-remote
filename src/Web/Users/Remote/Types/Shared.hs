@@ -16,6 +16,8 @@ import           Purescript.Interop
 import           Web.Users.Types              hiding (UserId)
 import           Web.Users.Remote.Types
 
+data Ok = Ok
+
 data UserCommand uinfo uid sid
   = VerifySession SessionId (Proxy (Maybe uid))
   | CreateUser (User uinfo) T.Text (Proxy (Either CreateUserError uid))
@@ -23,7 +25,9 @@ data UserCommand uinfo uid sid
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] Int (Proxy (Either FacebookLoginError sid))
   | GetUserById uid (Proxy (Maybe (User uinfo)))
-  | Logout SessionId (Proxy ())
+  | Logout SessionId (Proxy Ok)
+
+deriveJSON options ''Ok
 
 deriveJSON options ''Proxy
 deriveJSON options ''UserCommand
@@ -79,5 +83,6 @@ mkExports (Just ((intercalate "\n"
   , (''UserCommand, True)
   , (''Password, True)
   , (''SessionId, False)
+  , (''Ok, True)
   , (''User, False)
   ]

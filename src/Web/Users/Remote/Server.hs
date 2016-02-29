@@ -102,6 +102,7 @@ handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
 
 handleUserCommand conn cred manager (Logout sid r) = respond r <$> do
   destroySession conn sid
+  return Ok
 
 runAuthServer :: forall a. (FromJSON a, ToJSON a, Default a) => Proxy a -> FB.Credentials -> C.Manager -> Connection -> Int -> IO ()
 runAuthServer proxy cred manager conn port = do

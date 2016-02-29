@@ -119,7 +119,7 @@ AuthFacebook Text (Array  ((Tuple  Text) Text)) Int (Proxy ((Either FacebookLogi
 |
 GetUserById uid (Proxy (Maybe (User uinfo)))
 |
-Logout SessionId (Proxy Unit )
+Logout SessionId (Proxy Ok)
 
 
 instance userCommandToJson :: (ToJSON uinfo, ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand uinfo uid sid) where
@@ -219,6 +219,22 @@ instance passwordFromJson ::  FromJSON (Password ) where
 newtype SessionId  = SessionId {
   unSessionId :: Text
 }
+
+data Ok  = Ok 
+
+
+instance okToJson ::  ToJSON (Ok ) where
+  toJSON (Ok ) = object $
+    [ "tag" .= "Ok"
+    , "contents" .= ([] :: Array String)
+    ]
+
+
+instance okFromJson ::  FromJSON (Ok ) where
+  parseJSON (JObject o) = do
+         return Ok
+
+
 
 data User a = User {
   u_name :: Text,
