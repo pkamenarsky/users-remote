@@ -2,6 +2,7 @@
 
 module Web.Users.Remote.Types.Shared where
 
+import           Data.Aeson
 import           Data.Aeson.TH
 import           Data.Proxy
 
@@ -27,7 +28,11 @@ data UserCommand uinfo uid sid
   | GetUserById uid (Proxy (Maybe (User uinfo)))
   | Logout SessionId (Proxy Ok)
 
-deriveJSON options ''Ok
+instance FromJSON Ok where
+  parseJSON _ = return Ok
+
+instance ToJSON Ok where
+  toJSON _ = object []
 
 deriveJSON options ''Proxy
 deriveJSON options ''UserCommand
