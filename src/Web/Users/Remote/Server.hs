@@ -39,10 +39,10 @@ import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
 -- FIXME: find a better solution for internal user data
-getInternalUserById :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo) => conn -> U.UserId conn -> IO (Maybe (U.User uinfo))
+getInternalUserById :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo) => conn -> U.UserId conn -> IO (Maybe (U.User (UserAdditionalInfo uinfo)))
 getInternalUserById conn uid = do
   user <- getUserById conn uid
-  return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
+  return $ flip fmap user $ \user -> user { u_more = userAdditionalInfo (u_more (user :: User (UserBackendInfo uinfo))) }
 
 handleUserCommand :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo, Default uinfo)
                   => conn
@@ -58,10 +58,10 @@ handleUserCommand conn _ _ (AuthUser name pwd t r) = respond r <$> do
       createSession' uid = createSession conn uid (fromIntegral t)
 
       -- don't allow facebook users to login with a password
-      verifyUser :: User (UserInfo uinfo) -> Bool
-      verifyUser user = case u_more user of
-        (_, None) -> verifyPassword (PasswordPlain pwd) $ u_password user
-        (_, FacebookInfo _ _) -> False
+      verifyUser :: User (UserBackendInfo uinfo) -> Bool
+      verifyUser user = case userProviderInfo $ u_more user of
+        None -> verifyPassword (PasswordPlain pwd) $ u_password user
+        FacebookInfo _ _ -> False
 
 handleUserCommand _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
   FB.runFacebookT cred manager $
@@ -94,11 +94,16 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
           return $ maybe (Left CreateSessionError) Right sid
 
 handleUserCommand conn cred manager (CreateUser user pwd r) = respond r <$> do
-  createUser conn (user { u_password = makePassword (PasswordPlain pwd), u_more = (defaultValue :: uinfo, None)})
+  createUser conn $ user
+    { u_password = makePassword (PasswordPlain pwd)
+    -- userInfo is set to default value here, since it may involve setting
+    -- permissions and the like
+    , u_more = UserBackendInfo ((u_more user) { userInfo = defaultValue }) None :: UserBackendInfo uinfo
+    }
 
 handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
   user <- getUserById conn uid
-  return $ flip fmap user $ \user -> user { u_more = fst (u_more (user :: User (UserInfo uinfo))) }
+  return $ flip fmap user $ \user -> user { u_more = userAdditionalInfo (u_more (user :: User (UserBackendInfo uinfo))) }
 
 handleUserCommand conn cred manager (Logout sid r) = respond r <$> do
   destroySession conn sid

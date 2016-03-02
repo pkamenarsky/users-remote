@@ -21,11 +21,11 @@ data Ok = Ok
 
 data UserCommand uinfo uid sid
   = VerifySession SessionId (Proxy (Maybe uid))
-  | CreateUser (User uinfo) T.Text (Proxy (Either CreateUserError uid))
+  | CreateUser (User (UserAdditionalInfo uinfo)) T.Text (Proxy (Either CreateUserError uid))
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] Int (Proxy (Either FacebookLoginError sid))
-  | GetUserById uid (Proxy (Maybe (User uinfo)))
+  | GetUserById uid (Proxy (Maybe (User (UserAdditionalInfo uinfo))))
   | Logout SessionId (Proxy Ok)
 
 deriveJSON options ''Ok
@@ -38,6 +38,8 @@ deriveJSON options ''NominalDiffTime
 deriveJSON options ''PasswordPlain
 deriveJSON options ''Password
 
+deriveJSON options ''UserAdditionalInfo
+deriveJSON options ''UserBackendInfo
 deriveJSON options ''UserProviderInfo
 
 deriveJSON options ''FacebookLoginError

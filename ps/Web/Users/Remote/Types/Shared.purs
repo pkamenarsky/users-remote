@@ -109,7 +109,7 @@ instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
 
 data UserCommand uinfo uid sid = VerifySession SessionId (Proxy (Maybe uid))
 |
-CreateUser (User uinfo) Text (Proxy ((Either CreateUserError) uid))
+CreateUser (User (UserAdditionalInfo uinfo)) Text (Proxy ((Either CreateUserError) uid))
 |
 AuthUser Text Text Int (Proxy (Maybe sid))
 |
@@ -117,7 +117,7 @@ AuthFacebookUrl Text (Array  Text) (Proxy Text)
 |
 AuthFacebook Text (Array  ((Tuple  Text) Text)) Int (Proxy ((Either FacebookLoginError) sid))
 |
-GetUserById uid (Proxy (Maybe (User uinfo)))
+GetUserById uid (Proxy (Maybe (User (UserAdditionalInfo uinfo))))
 |
 Logout SessionId (Proxy Ok)
 

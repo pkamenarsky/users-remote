@@ -17,11 +17,19 @@ options = defaultOptions { allNullaryToStringTag = False }
 class Default a where
   defaultValue :: a
 
+data UserAdditionalInfo a = UserAdditionalInfo
+ { userAIFullName :: T.Text
+ , userInfo :: a
+ }
+
 data UserProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
                       | None
                       deriving Show
 
-type UserInfo a = (a, UserProviderInfo)
+data UserBackendInfo a = UserBackendInfo
+  { userAdditionalInfo :: UserAdditionalInfo a
+  , userProviderInfo :: UserProviderInfo
+  }
 
 data FacebookLoginError = UserEmailEmptyError
                         | CreateSessionError
