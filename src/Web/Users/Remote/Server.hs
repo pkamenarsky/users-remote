@@ -85,7 +85,11 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
       -- create random password just in case
       g <- newStdGen
       let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
-      uid <- createUser conn (User fbUserName (fromMaybe "" $ FB.userEmail fbUser) (makePassword pwd) True ((defaultValue :: uinfo), FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser)))
+      uid <- createUser conn
+            $ User fbUserName (fromMaybe "" $ FB.userEmail fbUser) (makePassword pwd) True
+              (UserBackendInfo
+                (UserAdditionalInfo (fromMaybe "Facebook User" $ FB.userName fbUser) defaultValue)
+                (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser)) :: UserBackendInfo uinfo)
 
       case uid of
         Left e -> return $ Left $ CreateUserError e
