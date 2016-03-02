@@ -35,3 +35,5 @@ data FacebookLoginError = UserEmailEmptyError
                         | CreateSessionError
                         | CreateUserError CreateUserError
 
+data CreateUserExtraError = UserFullNameEmtpyError
+                          | CreateUserExtraError CreateUserError

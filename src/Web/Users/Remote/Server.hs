@@ -12,6 +12,7 @@ import           Control.Monad.Trans.Resource
 import           Control.Monad
 
 import           Data.Aeson
+import           Data.Bifunctor              as BF
 import qualified Data.ByteString.Lazy        as B
 import qualified Data.ByteString             as BS
 import           Data.Maybe
@@ -86,7 +87,7 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
       g <- newStdGen
       let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
       uid <- createUser conn
-            $ User fbUserName (fromMaybe "" $ FB.userEmail fbUser) (makePassword pwd) True
+            $ User fbUserName (fromMaybe fbUserName $ FB.userEmail fbUser) (makePassword pwd) True
               (UserBackendInfo
                 (UserAdditionalInfo (fromMaybe "Facebook User" $ FB.userName fbUser) defaultValue)
                 (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser)) :: UserBackendInfo uinfo)
@@ -98,12 +99,16 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
           return $ maybe (Left CreateSessionError) Right sid
 
 handleUserCommand conn cred manager (CreateUser user pwd r) = respond r <$> do
-  createUser conn $ user
-    { u_password = makePassword (PasswordPlain pwd)
-    -- userInfo is set to default value here, since it may involve setting
-    -- permissions and the like
-    , u_more = UserBackendInfo ((u_more user) { userInfo = defaultValue }) None :: UserBackendInfo uinfo
-    }
+  if T.null $ userAIFullName $ u_more user
+    then return $ Left UserFullNameEmtpyError
+    else do
+      r <- createUser conn $ user
+             { u_password = makePassword (PasswordPlain pwd)
+             -- userInfo is set to default value here, since it may involve setting
+             -- permissions and the like
+             , u_more = UserBackendInfo ((u_more user) { userInfo = defaultValue }) None :: UserBackendInfo uinfo
+             }
+      return $ BF.first CreateUserExtraError r
 
 handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
   user <- getUserById conn uid
