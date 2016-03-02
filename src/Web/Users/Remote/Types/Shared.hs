@@ -28,11 +28,7 @@ data UserCommand uinfo uid sid
   | GetUserById uid (Proxy (Maybe (User uinfo)))
   | Logout SessionId (Proxy Ok)
 
-instance FromJSON Ok where
-  parseJSON _ = return Ok
-
-instance ToJSON Ok where
-  toJSON _ = object []
+deriveJSON options ''Ok
 
 deriveJSON options ''Proxy
 deriveJSON options ''UserCommand
