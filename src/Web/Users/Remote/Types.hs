@@ -20,7 +20,7 @@ class Default a where
 data UserAdditionalInfo a = UserAdditionalInfo
  { userAIFullName :: T.Text
  , userInfo :: a
- }
+ } deriving Show
 
 data UserProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
                       | None
@@ -29,7 +29,7 @@ data UserProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
 data UserBackendInfo a = UserBackendInfo
   { userAdditionalInfo :: UserAdditionalInfo a
   , userProviderInfo :: UserProviderInfo
-  }
+  } deriving Show
 
 data FacebookLoginError = UserEmailEmptyError
                         | CreateSessionError
