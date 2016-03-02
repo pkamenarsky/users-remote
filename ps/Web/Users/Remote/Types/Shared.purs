@@ -236,6 +236,26 @@ instance okFromJson ::  FromJSON (Ok ) where
 
 
 
+data UserAdditionalInfo a = UserAdditionalInfo {
+  userAIFullName :: Text,
+  userInfo :: a
+}
+
+instance userAdditionalInfoToJson :: (ToJSON a) =>  ToJSON (UserAdditionalInfo a) where
+  toJSON (UserAdditionalInfo v) = object $
+    [ "tag" .= "UserAdditionalInfo"
+    , "userAIFullName" .= v.userAIFullName
+    , "userInfo" .= v.userInfo
+    ]
+
+
+instance userAdditionalInfoFromJson :: (FromJSON a) =>  FromJSON (UserAdditionalInfo a) where
+  parseJSON (JObject o) = do
+        userAIFullName <- o .: "userAIFullName"
+        userInfo <- o .: "userInfo"
+        return $ UserAdditionalInfo { userAIFullName : userAIFullName, userInfo : userInfo }
+
+
 data User a = User {
   u_name :: Text,
   u_email :: Text,

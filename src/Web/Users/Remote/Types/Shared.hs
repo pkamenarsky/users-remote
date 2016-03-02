@@ -87,5 +87,6 @@ mkExports (Just ((intercalate "\n"
   , (''Password, True)
   , (''SessionId, False)
   , (''Ok, True)
+  , (''UserAdditionalInfo, True)
   , (''User, False)
   ]
