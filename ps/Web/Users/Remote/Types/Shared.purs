@@ -256,14 +256,14 @@ instance userAdditionalInfoFromJson :: (FromJSON a) =>  FromJSON (UserAdditional
         return $ UserAdditionalInfo { userAIFullName : userAIFullName, userInfo : userInfo }
 
 
-data CreateUserExtraError  = UserFullNameEmtpyError 
+data CreateUserExtraError  = UserFullNameEmptyError 
 |
 CreateUserExtraError CreateUserError
 
 
 instance createUserExtraErrorToJson ::  ToJSON (CreateUserExtraError ) where
-  toJSON (UserFullNameEmtpyError ) = object $
-    [ "tag" .= "UserFullNameEmtpyError"
+  toJSON (UserFullNameEmptyError ) = object $
+    [ "tag" .= "UserFullNameEmptyError"
     , "contents" .= ([] :: Array String)
     ]
   toJSON (CreateUserExtraError x0) = object $
@@ -276,8 +276,8 @@ instance createUserExtraErrorFromJson ::  FromJSON (CreateUserExtraError ) where
   parseJSON (JObject o) = do
     tag <- o .: "tag"
     case tag of
-      "UserFullNameEmtpyError" -> do
-         return UserFullNameEmtpyError
+      "UserFullNameEmptyError" -> do
+         return UserFullNameEmptyError
 
       "CreateUserExtraError" -> do
          x0 <- o .: "contents"

@@ -100,7 +100,7 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
 
 handleUserCommand conn cred manager (CreateUser user pwd r) = respond r <$> do
   if T.null $ userAIFullName $ u_more user
-    then return $ Left UserFullNameEmtpyError
+    then return $ Left UserFullNameEmptyError
     else do
       r <- createUser conn $ user
              { u_password = makePassword (PasswordPlain pwd)
