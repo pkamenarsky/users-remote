@@ -256,6 +256,35 @@ instance userAdditionalInfoFromJson :: (FromJSON a) =>  FromJSON (UserAdditional
         return $ UserAdditionalInfo { userAIFullName : userAIFullName, userInfo : userInfo }
 
 
+data CreateUserExtraError  = UserFullNameEmtpyError 
+|
+CreateUserExtraError CreateUserError
+
+
+instance createUserExtraErrorToJson ::  ToJSON (CreateUserExtraError ) where
+  toJSON (UserFullNameEmtpyError ) = object $
+    [ "tag" .= "UserFullNameEmtpyError"
+    , "contents" .= ([] :: Array String)
+    ]
+  toJSON (CreateUserExtraError x0) = object $
+    [ "tag" .= "CreateUserExtraError"
+    , "contents" .= toJSON x0
+    ]
+
+
+instance createUserExtraErrorFromJson ::  FromJSON (CreateUserExtraError ) where
+  parseJSON (JObject o) = do
+    tag <- o .: "tag"
+    case tag of
+      "UserFullNameEmtpyError" -> do
+         return UserFullNameEmtpyError
+
+      "CreateUserExtraError" -> do
+         x0 <- o .: "contents"
+         CreateUserExtraError <$> parseJSON x0
+
+
+
 data User a = User {
   u_name :: Text,
   u_email :: Text,
