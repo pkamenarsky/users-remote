@@ -28,23 +28,23 @@ UsernameAndEmailAlreadyTaken
 instance createUserErrorToJson ::  ToJSON (CreateUserError ) where
   toJSON (UsernameOrEmailAlreadyTaken ) = object $
     [ "tag" .= "UsernameOrEmailAlreadyTaken"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
   toJSON (InvalidPassword ) = object $
     [ "tag" .= "InvalidPassword"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
   toJSON (UsernameAlreadyTaken ) = object $
     [ "tag" .= "UsernameAlreadyTaken"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
   toJSON (EmailAlreadyTaken ) = object $
     [ "tag" .= "EmailAlreadyTaken"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
   toJSON (UsernameAndEmailAlreadyTaken ) = object $
     [ "tag" .= "UsernameAndEmailAlreadyTaken"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
 
 
@@ -79,11 +79,11 @@ CreateUserError CreateUserError
 instance facebookLoginErrorToJson ::  ToJSON (FacebookLoginError ) where
   toJSON (UserEmailEmptyError ) = object $
     [ "tag" .= "UserEmailEmptyError"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
   toJSON (CreateSessionError ) = object $
     [ "tag" .= "CreateSessionError"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
   toJSON (CreateUserError x0) = object $
     [ "tag" .= "CreateUserError"
@@ -199,7 +199,7 @@ instance passwordToJson ::  ToJSON (Password ) where
     ]
   toJSON (PasswordHidden ) = object $
     [ "tag" .= "PasswordHidden"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
 
 
@@ -226,12 +226,12 @@ data Ok  = Ok
 instance okToJson ::  ToJSON (Ok ) where
   toJSON (Ok ) = object $
     [ "tag" .= "Ok"
-    , "contents" .= object []
+    , "contents" .= ([] :: Array String)
     ]
 
 
 instance okFromJson ::  FromJSON (Ok ) where
-  parseJSON (JObject o) = do
+  parseJSON _ = do
          return Ok
 
 
