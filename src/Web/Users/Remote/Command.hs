@@ -48,7 +48,7 @@ initOAuthBackend conn = do
   void $ execute conn
     [sql|
           create table if not exists login_facebook (
-             lid             integer not null references login(lid) on delete cascade,
+             lid             integer not null references login(lid) on delete restrict,
              fb_id           varchar(128)   not null unique,
              fb_email        varchar(128),
              fb_info         jsonb
@@ -59,7 +59,7 @@ initOAuthBackend conn = do
   void $ execute conn
     [sql|
           create table if not exists login_user_data (
-             lid             integer not null references login(lid) on delete cascade,
+             lid             integer not null references login(lid) on delete restrict,
              user_data       jsonb
           );
     |]
