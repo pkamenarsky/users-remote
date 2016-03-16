@@ -14,26 +14,9 @@ type UserId = Int64
 
 options = defaultOptions { allNullaryToStringTag = False }
 
-class Default a where
-  defaultValue :: a
-
-data UserAdditionalInfo a = UserAdditionalInfo
- { userAIFullName :: T.Text
- , userInfo :: a
- } deriving Show
-
-data UserProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
-                      | None
-                      deriving Show
-
-data UserBackendInfo a = UserBackendInfo
-  { userAdditionalInfo :: UserAdditionalInfo a
-  , userProviderInfo :: UserProviderInfo
-  } deriving Show
+data OAuthProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
+                         deriving Show
 
 data FacebookLoginError = UserEmailEmptyError
                         | CreateSessionError
                         | CreateUserError CreateUserError
-
-data CreateUserExtraError = UserFullNameEmptyError
-                          | CreateUserExtraError CreateUserError

@@ -21,7 +21,7 @@ data Ok = Ok
 
 data UserCommand uid sid
   = VerifySession SessionId (Proxy (Maybe uid))
-  | CreateUser User T.Text (Proxy (Either CreateUserExtraError uid))
+  | CreateUser T.Text T.Text T.Text (Proxy (Either CreateUserError uid))
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] Int (Proxy (Either FacebookLoginError sid))
@@ -38,12 +38,7 @@ deriveJSON options ''NominalDiffTime
 deriveJSON options ''PasswordPlain
 deriveJSON options ''Password
 
-deriveJSON options ''UserAdditionalInfo
-deriveJSON options ''UserBackendInfo
-deriveJSON options ''UserProviderInfo
-
 deriveJSON options ''FacebookLoginError
-deriveJSON options ''CreateUserExtraError
 
 mkExports (Just ((intercalate "\n"
   [ "module Web.Users.Remote.Types.Shared where"
@@ -60,7 +55,4 @@ mkExports (Just ((intercalate "\n"
   , (''Password, True)
   , (''SessionId, False)
   , (''Ok, True)
-  , (''UserAdditionalInfo, True)
-  , (''CreateUserExtraError, True)
-  , (''User, False)
   ]

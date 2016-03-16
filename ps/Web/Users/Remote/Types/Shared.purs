@@ -100,7 +100,7 @@ instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
 
 data UserCommand uid sid = VerifySession SessionId (Proxy (Maybe uid))
 |
-CreateUser User Text (Proxy ((Either CreateUserExtraError) uid))
+CreateUser Text Text Text (Proxy ((Either CreateUserError) uid))
 |
 AuthUser Text Text Int (Proxy (Maybe sid))
 |
@@ -118,9 +118,9 @@ instance userCommandToJson :: (ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand u
     [ "tag" .= "VerifySession"
     , "contents" .= [toJSON x0, toJSON x1]
     ]
-  toJSON (CreateUser x0 x1 x2) = object $
+  toJSON (CreateUser x0 x1 x2 x3) = object $
     [ "tag" .= "CreateUser"
-    , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
     ]
   toJSON (AuthUser x0 x1 x2 x3) = object $
     [ "tag" .= "AuthUser"
@@ -153,8 +153,8 @@ instance userCommandFromJson :: (FromJSON uid, FromJSON sid) =>  FromJSON (UserC
          VerifySession <$> parseJSON x0 <*> parseJSON x1
 
       "CreateUser" -> do
-         [x0, x1, x2] <- o .: "contents"
-         CreateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
+         [x0, x1, x2, x3] <- o .: "contents"
+         CreateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
 
       "AuthUser" -> do
          [x0, x1, x2, x3] <- o .: "contents"
@@ -225,60 +225,3 @@ instance okFromJson ::  FromJSON (Ok ) where
   parseJSON _ = do
          return Ok
 
-
-
-data UserAdditionalInfo a = UserAdditionalInfo {
-  userAIFullName :: Text,
-  userInfo :: a
-}
-
-instance userAdditionalInfoToJson :: (ToJSON a) =>  ToJSON (UserAdditionalInfo a) where
-  toJSON (UserAdditionalInfo v) = object $
-    [ "tag" .= "UserAdditionalInfo"
-    , "userAIFullName" .= v.userAIFullName
-    , "userInfo" .= v.userInfo
-    ]
-
-
-instance userAdditionalInfoFromJson :: (FromJSON a) =>  FromJSON (UserAdditionalInfo a) where
-  parseJSON (JObject o) = do
-        userAIFullName <- o .: "userAIFullName"
-        userInfo <- o .: "userInfo"
-        return $ UserAdditionalInfo { userAIFullName : userAIFullName, userInfo : userInfo }
-
-
-data CreateUserExtraError  = UserFullNameEmptyError 
-|
-CreateUserExtraError CreateUserError
-
-
-instance createUserExtraErrorToJson ::  ToJSON (CreateUserExtraError ) where
-  toJSON (UserFullNameEmptyError ) = object $
-    [ "tag" .= "UserFullNameEmptyError"
-    , "contents" .= ([] :: Array String)
-    ]
-  toJSON (CreateUserExtraError x0) = object $
-    [ "tag" .= "CreateUserExtraError"
-    , "contents" .= toJSON x0
-    ]
-
-
-instance createUserExtraErrorFromJson ::  FromJSON (CreateUserExtraError ) where
-  parseJSON (JObject o) = do
-    tag <- o .: "tag"
-    case tag of
-      "UserFullNameEmptyError" -> do
-         return UserFullNameEmptyError
-
-      "CreateUserExtraError" -> do
-         x0 <- o .: "contents"
-         CreateUserExtraError <$> parseJSON x0
-
-
-
-data User  = User {
-  u_name :: Text,
-  u_email :: Text,
-  u_password :: Password,
-  u_active :: Boolean
-}
