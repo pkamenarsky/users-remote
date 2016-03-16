@@ -44,6 +44,7 @@ import           Web.Users.Remote.Types.Shared
 
 initOAuthBackend :: Connection -> IO ()
 initOAuthBackend conn = do
+  initUserBackend conn
   void $ execute conn
     [sql|
           create table if not exists login_facebook (
