@@ -14,6 +14,36 @@ import Prelude
 
 type Text = String
 
+data CreateUserValidationError err = CreateUserError CreateUserError
+|
+CreateUserValidationError err
+
+
+instance createUserValidationErrorToJson :: (ToJSON err) =>  ToJSON (CreateUserValidationError err) where
+  toJSON (CreateUserError x0) = object $
+    [ "tag" .= "CreateUserError"
+    , "contents" .= toJSON x0
+    ]
+  toJSON (CreateUserValidationError x0) = object $
+    [ "tag" .= "CreateUserValidationError"
+    , "contents" .= toJSON x0
+    ]
+
+
+instance createUserValidationErrorFromJson :: (FromJSON err) =>  FromJSON (CreateUserValidationError err) where
+  parseJSON (JObject o) = do
+    tag <- o .: "tag"
+    case tag of
+      "CreateUserError" -> do
+         x0 <- o .: "contents"
+         CreateUserError <$> parseJSON x0
+
+      "CreateUserValidationError" -> do
+         x0 <- o .: "contents"
+         CreateUserValidationError <$> parseJSON x0
+
+
+
 data CreateUserError  = InvalidPassword 
 |
 UsernameAlreadyTaken 

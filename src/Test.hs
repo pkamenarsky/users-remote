@@ -5,7 +5,6 @@ module Test where
 
 import Data.Aeson
 import Data.Aeson.TH
-import Data.Default.Class
 import Data.Proxy
 
 import Web.Users.Types              hiding (UserId)

@@ -51,7 +51,8 @@ mkExports (Just ((intercalate "\n"
   , ""
   , "ps/Web/Users/Remote/Types/Shared.purs"))
 
-  [ (''CreateUserError, True)
+  [ (''CreateUserValidationError, True)
+  , (''CreateUserError, True)
   , (''FacebookLoginError, True)
   , (''UserCommand, True)
   , (''Password, True)
