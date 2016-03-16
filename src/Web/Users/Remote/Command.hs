@@ -104,7 +104,6 @@ checkRights :: forall udata. (Default udata, OrdAccessRights udata, FromJSON uda
             -> IO Bool
 checkRights _ conn sid uid = do
   uidMine <- verifySession conn sid (fromIntegral 0)
-  print uidMine
   case uidMine of
     Just uidMine -> do
       if uidMine == uid
@@ -112,8 +111,6 @@ checkRights _ conn sid uid = do
         else do
           udataMine <- queryUserData conn uidMine :: IO (Maybe udata)
           udataTheirsOld <- queryUserData conn uid :: IO (Maybe udata)
-          print $ encode udataMine
-          print $ encode udataTheirsOld
 
           -- only update user data if we have the access rights
           case (udataMine, udataTheirsOld) of
