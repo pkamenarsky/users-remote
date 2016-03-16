@@ -1,4 +1,5 @@
 .cabal-sandbox
+db
 cabal.sandbox.config
 dist
 tags
