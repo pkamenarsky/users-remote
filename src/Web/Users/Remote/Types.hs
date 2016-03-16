@@ -22,6 +22,9 @@ options = defaultOptions { allNullaryToStringTag = False }
 deriving instance FromField FB.Id
 deriving instance ToField FB.Id
 
+class OrdAccessRights a where
+  cmpAccessRighs :: a -> a -> Ordering
+
 data OAuthProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
                          deriving Show
 

@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Web.Users.Remote.Server (handleUserCommand, initOAuthBackend) where
+module Web.Users.Remote.Command (handleUserCommand, initOAuthBackend) where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class
@@ -48,7 +48,7 @@ initOAuthBackend conn = do
   void $ execute conn
     [sql|
           create table if not exists login_facebook (
-             lid             serial references login on delete cascade,
+             lid             integer not null references login(lid) on delete cascade,
              fb_id           varchar(128)   not null unique,
              fb_email        varchar(128),
              fb_info         jsonb
@@ -59,7 +59,7 @@ initOAuthBackend conn = do
   void $ execute conn
     [sql|
           create table if not exists login_user_data (
-             lid             serial references login on delete cascade,
+             lid             integer not null references login(lid) on delete cascade,
              user_data       jsonb
           );
     |]
@@ -79,7 +79,7 @@ insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) = do
 
 queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe ud)
 queryUserData conn uid = do
-  r <- query conn [sql|select user_data, login_user_data where lid = ? limit 1;|] (Only uid)
+  r <- query conn [sql|select user_data from login_user_data where lid = ? limit 1;|] (Only uid)
   case r of
     [Only ud] -> case fromJSON ud of
       Success ud -> return ud
@@ -88,16 +88,13 @@ queryUserData conn uid = do
 
 insertUserData :: ToJSON ud => Connection -> UserId -> ud -> IO Bool
 insertUserData conn uid udata = do
-   r <- execute conn [sql|insert into login_user_data (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (Only $ toJSON udata)
+   r <- execute conn [sql|insert into login_user_data (lid, user_data) values (?, ?)|] (uid, toJSON udata)
    return (r > 0)
 
 updateUserData :: ToJSON ud => Connection -> UserId -> ud -> IO Bool
 updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
-
-class OrdAccessRights a where
-  cmpAccessRighs :: a -> a -> Ordering
 
 checkRights :: forall udata. (Default udata, OrdAccessRights udata, FromJSON udata, ToJSON udata)
             => Proxy udata
@@ -107,6 +104,7 @@ checkRights :: forall udata. (Default udata, OrdAccessRights udata, FromJSON uda
             -> IO Bool
 checkRights _ conn sid uid = do
   uidMine <- verifySession conn sid (fromIntegral 0)
+  print uidMine
   case uidMine of
     Just uidMine -> do
       if uidMine == uid
@@ -114,6 +112,8 @@ checkRights _ conn sid uid = do
         else do
           udataMine <- queryUserData conn uidMine :: IO (Maybe udata)
           udataTheirsOld <- queryUserData conn uid :: IO (Maybe udata)
+          print $ encode udataMine
+          print $ encode udataTheirsOld
 
           -- only update user data if we have the access rights
           case (udataMine, udataTheirsOld) of
