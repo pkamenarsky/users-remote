@@ -145,7 +145,7 @@ handleUserCommand _ (Config {..}) (AuthFacebookUrl url perms r) = respond r <$> 
   FB.runFacebookT fbCredentials httpManager $
     FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
-handleUserCommand conn (Config {..}) (AuthFacebook url args t r) = respond r <$> do
+handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond r <$> do
   -- try to fetch facebook user
   fbUser <- runResourceT $ FB.runFacebookT fbCredentials httpManager $ do
     token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
@@ -170,7 +170,7 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args t r) = respond r <$>
         Left e -> return $ Left $ FacebookCreateUserError e
         Right uid -> do
           r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
-          r2 <- insertUserData conn uid defaultUserData
+          r2 <- insertUserData conn uid (maskUserDataFromClient udata)
 
           case (r1, r2) of
             (True, True) -> do
@@ -178,11 +178,11 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args t r) = respond r <$>
               return $ maybe (Left FacebookCreateSessionError) Right sid
             _ -> return $ Left FacebookCreateSessionError
 
-handleUserCommand conn (Config {..}) (CreateUser u_name u_email password r) = respond r <$> do
+handleUserCommand conn (Config {..}) (CreateUser u_name u_email password udata r) = respond r <$> do
   uid <- createUser conn (User { u_active = True, u_password = makePassword (PasswordPlain password), .. })
   case uid of
     Right uid -> do
-      r <- insertUserData conn uid defaultUserData
+      r <- insertUserData conn uid (maskUserDataFromClient udata)
       if r
         then return $ Right uid
         else do

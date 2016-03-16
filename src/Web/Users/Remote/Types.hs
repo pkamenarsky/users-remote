@@ -27,9 +27,9 @@ deriving instance FromField FB.Id
 deriving instance ToField FB.Id
 
 data Config udata err = Config
-  { defaultUserData :: udata
-  , cmpAccessRights :: udata -> udata -> Ordering
+  { cmpAccessRights :: udata -> udata -> Ordering
   , validateUserData :: udata -> Either err ()
+  , maskUserDataFromClient :: udata -> udata
 
   , fbCredentials :: FB.Credentials
   , httpManager :: C.Manager

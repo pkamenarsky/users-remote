@@ -32,11 +32,11 @@ test = do
       cmp (UserData _ "user" ) (UserData _ _      ) = LT
 
       cfg = Config
-        { defaultUserData = UserData "No name" "user"
-        , cmpAccessRights = cmp
+        { cmpAccessRights = cmp
         , validateUserData = \ud -> if null (userFullName ud)
             then Left FullNameEmpty
             else Right ()
+        , maskUserDataFromClient = id
 
         , fbCredentials = undefined
         , httpManager = undefined
@@ -47,7 +47,7 @@ test = do
   initOAuthBackend conn
 
   r <- handleUserCommand conn cfg
-    (CreateUser "user2" "user2" "password" Proxy :: UserCommand UserData UserId SessionId UserDataValidationError)
+    (CreateUser "user2" "user2" "password" (UserData "" "") Proxy :: UserCommand UserData UserId SessionId UserDataValidationError)
   print r
   case fromJSON r :: (Result (Either CreateUserError UserId)) of
     Success (Right uid) -> do
