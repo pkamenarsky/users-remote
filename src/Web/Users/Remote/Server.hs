@@ -42,14 +42,23 @@ import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
 initOAuthBackend :: Connection -> IO ()
-initOAuthBackend conn =
+initOAuthBackend conn = do
   void $ execute conn
     [sql|
           create table if not exists login_facebook (
              lid             serial references login on delete cascade,
-             fb_id           varchar(64)    not null unique,
-             fb_email        varchar(128)   unique,
+             fb_id           varchar(128)   not null unique,
+             fb_email        varchar(128),
              fb_info         jsonb
+          );
+    |]
+    ()
+
+  void $ execute conn
+    [sql|
+          create table if not exists login_user_data (
+             lid             serial references login on delete cascade,
+             user_data       jsonb
           );
     |]
     ()
@@ -64,6 +73,19 @@ queryOAuthInfo conn uid = do
 insertOAuthInfo :: Connection -> UserId -> OAuthProviderInfo -> IO ()
 insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) =
    void $ execute conn [sql|insert into facebook_login (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (uid, fbId, fbEmail)
+
+queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe ud)
+queryUserData conn uid = do
+  r <- query conn [sql|select user_data, login_user_data where lid = ? limit 1;|] (Only uid)
+  case r of
+    [Only ud] -> case fromJSON ud of
+      Success ud -> return ud
+      _ -> return Nothing
+    _ -> return Nothing
+
+insertUserData :: ToJSON ud => Connection -> UserId -> ud -> IO ()
+insertUserData conn uid udata =
+   void $ execute conn [sql|insert into facebook_login (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (Only $ toJSON udata)
 
 handleUserCommand :: Connection
                   -> FB.Credentials
