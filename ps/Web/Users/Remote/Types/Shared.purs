@@ -100,7 +100,7 @@ instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
 
 data UserCommand udata uid sid = VerifySession SessionId (Proxy (Maybe uid))
 |
-CreateUser Text Text Text udata (Proxy ((Either CreateUserError) uid))
+CreateUser Text Text Text (Proxy ((Either CreateUserError) uid))
 |
 UpdateUserData sid udata (Proxy Boolean)
 |
@@ -108,7 +108,7 @@ AuthUser Text Text Int (Proxy (Maybe sid))
 |
 AuthFacebookUrl Text (Array  Text) (Proxy Text)
 |
-AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either FacebookLoginError) sid))
+AuthFacebook Text (Array  ((Tuple  Text) Text)) Int (Proxy ((Either FacebookLoginError) sid))
 |
 GetUserData sid (Proxy (Maybe udata))
 |
@@ -120,9 +120,9 @@ instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid) =>  ToJSON 
     [ "tag" .= "VerifySession"
     , "contents" .= [toJSON x0, toJSON x1]
     ]
-  toJSON (CreateUser x0 x1 x2 x3 x4) = object $
+  toJSON (CreateUser x0 x1 x2 x3) = object $
     [ "tag" .= "CreateUser"
-    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3, toJSON x4]
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
     ]
   toJSON (UpdateUserData x0 x1 x2) = object $
     [ "tag" .= "UpdateUserData"
@@ -136,9 +136,9 @@ instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid) =>  ToJSON 
     [ "tag" .= "AuthFacebookUrl"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
     ]
-  toJSON (AuthFacebook x0 x1 x2 x3 x4) = object $
+  toJSON (AuthFacebook x0 x1 x2 x3) = object $
     [ "tag" .= "AuthFacebook"
-    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3, toJSON x4]
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
     ]
   toJSON (GetUserData x0 x1) = object $
     [ "tag" .= "GetUserData"
@@ -159,8 +159,8 @@ instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid) => 
          VerifySession <$> parseJSON x0 <*> parseJSON x1
 
       "CreateUser" -> do
-         [x0, x1, x2, x3, x4] <- o .: "contents"
-         CreateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3 <*> parseJSON x4
+         [x0, x1, x2, x3] <- o .: "contents"
+         CreateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
 
       "UpdateUserData" -> do
          [x0, x1, x2] <- o .: "contents"
@@ -175,8 +175,8 @@ instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid) => 
          AuthFacebookUrl <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
 
       "AuthFacebook" -> do
-         [x0, x1, x2, x3, x4] <- o .: "contents"
-         AuthFacebook <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3 <*> parseJSON x4
+         [x0, x1, x2, x3] <- o .: "contents"
+         AuthFacebook <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
 
       "GetUserData" -> do
          [x0, x1] <- o .: "contents"

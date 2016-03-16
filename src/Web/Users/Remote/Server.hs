@@ -16,6 +16,7 @@ import           Data.Aeson
 import           Data.Bifunctor              as BF
 import qualified Data.ByteString.Lazy        as B
 import qualified Data.ByteString             as BS
+import           Data.Default.Class
 import           Data.Maybe
 import           Data.Monoid                 ((<>))
 import           Data.Proxy
@@ -94,7 +95,7 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
-handleUserCommand :: (FromJSON udata, ToJSON udata)
+handleUserCommand :: forall udata. (Default udata, Ord udata, FromJSON udata, ToJSON udata)
                   => Connection
                   -> FB.Credentials
                   -> C.Manager
@@ -118,7 +119,7 @@ handleUserCommand _ cred manager (AuthFacebookUrl url perms r) = respond r <$> d
   FB.runFacebookT cred manager $
     FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
-handleUserCommand conn cred manager (AuthFacebook url args udata t r) = respond r <$> do
+handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> do
   -- try to fetch facebook user
   fbUser <- runResourceT $ FB.runFacebookT cred manager $ do
     token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
@@ -143,7 +144,7 @@ handleUserCommand conn cred manager (AuthFacebook url args udata t r) = respond 
         Left e -> return $ Left $ CreateUserError e
         Right uid -> do
           r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
-          r2 <- insertUserData conn uid udata
+          r2 <- insertUserData conn uid (def undefined :: udata)
 
           case (r1, r2) of
             (True, True) -> do
@@ -151,11 +152,11 @@ handleUserCommand conn cred manager (AuthFacebook url args udata t r) = respond 
               return $ maybe (Left CreateSessionError) Right sid
             _ -> return $ Left CreateSessionError
 
-handleUserCommand conn cred manager (CreateUser u_name u_email password udata r) = respond r <$> do
+handleUserCommand conn cred manager (CreateUser u_name u_email password r) = respond r <$> do
   uid <- createUser conn (User { u_active = True, u_password = makePassword (PasswordPlain password), .. })
   case uid of
     Right uid -> do
-      r <- insertUserData conn uid udata
+      r <- insertUserData conn uid (def undefined :: udata)
       if r
         then return $ Right uid
         else do
