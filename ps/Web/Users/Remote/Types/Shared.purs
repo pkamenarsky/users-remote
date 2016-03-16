@@ -221,6 +221,19 @@ newtype SessionId  = SessionId {
   unSessionId :: Text
 }
 
+instance sessionIdToJson ::  ToJSON (SessionId ) where
+  toJSON (SessionId v) = object $
+    [ "tag" .= "SessionId"
+    , "unSessionId" .= v.unSessionId
+    ]
+
+
+instance sessionIdFromJson ::  FromJSON (SessionId ) where
+  parseJSON (JObject o) = do
+        unSessionId <- o .: "unSessionId"
+        return $ SessionId { unSessionId : unSessionId }
+
+
 data Ok  = Ok 
 
 

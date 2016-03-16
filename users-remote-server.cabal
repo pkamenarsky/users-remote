@@ -30,7 +30,6 @@ library
   build-depends:       base >=4.8 && <4.9,
                        aeson >=0.9 && <0.10,
                        bytestring >=0.10 && <0.11,
-                       data-default-class <=0.0.1,
                        fb >=1.0 && <1.1,
                        http-conduit >=2.1 && <2.2,
                        mtl >=2.2 && <2.3,

@@ -16,7 +16,6 @@ import           Data.Aeson
 import           Data.Bifunctor              as BF
 import qualified Data.ByteString.Lazy        as B
 import qualified Data.ByteString             as BS
-import           Data.Default.Class
 import           Data.Maybe
 import           Data.Monoid                 ((<>))
 import           Data.Proxy
@@ -96,13 +95,13 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
-checkRights :: forall udata. (Default udata, OrdAccessRights udata, FromJSON udata, ToJSON udata)
-            => Proxy udata
+checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
+            => Config udata err
             -> Connection
             -> SessionId
             -> UserId
             -> IO Bool
-checkRights _ conn sid uid = do
+checkRights (Config {..}) conn sid uid = do
   uidMine <- verifySession conn sid (fromIntegral 0)
   case uidMine of
     Just uidMine -> do
@@ -115,19 +114,18 @@ checkRights _ conn sid uid = do
           -- only update user data if we have the access rights
           case (udataMine, udataTheirsOld) of
             (Just udataMine, Just udataTheirsOld)
-              | udataMine `cmpAccessRighs` udataTheirsOld == GT -> return True
+              | udataMine `cmpAccessRights` udataTheirsOld == GT -> return True
             _ -> return False
     _ -> return False
 
-handleUserCommand :: forall udata. (Default udata, OrdAccessRights udata, FromJSON udata, ToJSON udata)
+handleUserCommand :: forall udata err. (FromJSON udata, ToJSON udata)
                   => Connection
-                  -> FB.Credentials
-                  -> C.Manager
+                  -> Config udata err
                   -> UserCommand udata UserId SessionId
                   -> IO Value
-handleUserCommand conn _ _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
+handleUserCommand conn _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
 
-handleUserCommand conn _ _ (AuthUser name pwd t r) = respond r <$> do
+handleUserCommand conn _ (AuthUser name pwd t r) = respond r <$> do
   uid <- getUserIdByName conn name
 
   case uid of
@@ -139,17 +137,17 @@ handleUserCommand conn _ _ (AuthUser name pwd t r) = respond r <$> do
         _ -> return Nothing
     Nothing -> return Nothing
 
-handleUserCommand _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
-  FB.runFacebookT cred manager $
+handleUserCommand _ (Config {..}) (AuthFacebookUrl url perms r) = respond r <$> do
+  FB.runFacebookT fbCredentials httpManager $
     FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
-handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> do
+handleUserCommand conn (Config {..}) (AuthFacebook url args t r) = respond r <$> do
   -- try to fetch facebook user
-  fbUser <- runResourceT $ FB.runFacebookT cred manager $ do
+  fbUser <- runResourceT $ FB.runFacebookT fbCredentials httpManager $ do
     token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
     FB.getUser "me" [] (Just token)
 
-  let fbUserName = FB.appId cred <> FB.idCode (FB.userId fbUser)
+  let fbUserName = FB.appId fbCredentials <> FB.idCode (FB.userId fbUser)
 
   uid <- getUserIdByName conn fbUserName
 
@@ -168,7 +166,7 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
         Left e -> return $ Left $ CreateUserError e
         Right uid -> do
           r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
-          r2 <- insertUserData conn uid (def undefined :: udata)
+          r2 <- insertUserData conn uid defaultUserData
 
           case (r1, r2) of
             (True, True) -> do
@@ -176,11 +174,11 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
               return $ maybe (Left CreateSessionError) Right sid
             _ -> return $ Left CreateSessionError
 
-handleUserCommand conn cred manager (CreateUser u_name u_email password r) = respond r <$> do
+handleUserCommand conn (Config {..}) (CreateUser u_name u_email password r) = respond r <$> do
   uid <- createUser conn (User { u_active = True, u_password = makePassword (PasswordPlain password), .. })
   case uid of
     Right uid -> do
-      r <- insertUserData conn uid (def undefined :: udata)
+      r <- insertUserData conn uid defaultUserData
       if r
         then return $ Right uid
         else do
@@ -188,20 +186,20 @@ handleUserCommand conn cred manager (CreateUser u_name u_email password r) = res
           return $ Left UsernameAlreadyTaken
     _ -> return uid
 
-handleUserCommand conn cred manager (UpdateUserData sid uid udata r) = respond r <$> do
-  rights <- checkRights (undefined :: Proxy udata) conn sid uid
+handleUserCommand conn cfg (UpdateUserData sid uid udata r) = respond r <$> do
+  rights <- checkRights cfg conn sid uid
 
   if rights
     then updateUserData conn uid udata
     else return False
 
-handleUserCommand conn cred manager (GetUserData sid uid r) = respond r <$> do
-  rights <- checkRights (undefined :: Proxy udata) conn sid uid
+handleUserCommand conn cfg (GetUserData sid uid r) = respond r <$> do
+  rights <- checkRights cfg conn sid uid
 
   if rights
     then queryUserData conn uid
     else return Nothing
 
-handleUserCommand conn cred manager (Logout sid r) = respond r <$> do
+handleUserCommand conn (Config {..}) (Logout sid r) = respond r <$> do
   destroySession conn sid
   return Ok

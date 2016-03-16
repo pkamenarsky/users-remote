@@ -54,6 +54,6 @@ mkExports (Just ((intercalate "\n"
   , (''FacebookLoginError, True)
   , (''UserCommand, True)
   , (''Password, True)
-  , (''SessionId, False)
+  , (''SessionId, True)
   , (''Ok, True)
   ]

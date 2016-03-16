@@ -18,39 +18,48 @@ import qualified Database.PostgreSQL.Simple     as PS
 
 data UserData = UserData { userFullName :: String, userRole :: String }
 
+data UserDataValidationError = FullNameEmpty
+
 deriveJSON defaultOptions ''UserData
-
-instance Default UserData where
-  def = UserData "No name" "user"
-
-instance OrdAccessRights UserData where
-  UserData _ "admin" `cmpAccessRighs` UserData _ "admin" = EQ
-  UserData _ "admin" `cmpAccessRighs` UserData _ _ = GT
-  UserData _ "user" `cmpAccessRighs` UserData _ "user" = EQ
-  UserData _ "user" `cmpAccessRighs` UserData _ _ = LT
 
 test :: IO ()
 test = do
   putStrLn "Testing..."
 
+  let cmp (UserData _ "admin") (UserData _ "admin") = EQ
+      cmp (UserData _ "admin") (UserData _ _      ) = GT
+      cmp (UserData _ "user" ) (UserData _ "user" ) = EQ
+      cmp (UserData _ "user" ) (UserData _ _      ) = LT
+
+      cfg = Config
+        { defaultUserData = UserData "No name" "user"
+        , cmpAccessRights = cmp
+        , validateUserData = \ud -> if null (userFullName ud)
+            then Left FullNameEmpty
+            else Right ()
+
+        , fbCredentials = undefined
+        , httpManager = undefined
+        }
+
   conn <- PS.connectPostgreSQL
     "host=localhost port=5432 dbname=postgres connect_timeout=10"
   initOAuthBackend conn
 
-  r <- handleUserCommand conn undefined undefined
+  r <- handleUserCommand conn cfg
     (CreateUser "user2" "user2" "password" Proxy :: UserCommand UserData UserId SessionId)
   print r
   case fromJSON r :: (Result (Either CreateUserError UserId)) of
     Success (Right uid) -> do
-      r <- handleUserCommand conn undefined undefined
+      r <- handleUserCommand conn cfg
         (AuthUser "user2" "password" 999999999 Proxy :: UserCommand UserData UserId SessionId)
       print r
       case fromJSON r :: (Result (Maybe SessionId)) of
         Success (Just sid) -> do
-          r <- handleUserCommand conn undefined undefined
+          r <- handleUserCommand conn cfg
             (GetUserData sid uid Proxy :: UserCommand UserData UserId SessionId)
           print r
-          r <- handleUserCommand conn undefined undefined
+          r <- handleUserCommand conn cfg
             (UpdateUserData sid uid (UserData "NEW DATA" "NEW DATA2") Proxy :: UserCommand UserData UserId SessionId)
           print r
         _ -> return ()
