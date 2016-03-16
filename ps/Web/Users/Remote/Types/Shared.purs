@@ -14,9 +14,7 @@ import Prelude
 
 type Text = String
 
-data CreateUserError  = UsernameOrEmailAlreadyTaken 
-|
-InvalidPassword 
+data CreateUserError  = InvalidPassword 
 |
 UsernameAlreadyTaken 
 |
@@ -26,10 +24,6 @@ UsernameAndEmailAlreadyTaken
 
 
 instance createUserErrorToJson ::  ToJSON (CreateUserError ) where
-  toJSON (UsernameOrEmailAlreadyTaken ) = object $
-    [ "tag" .= "UsernameOrEmailAlreadyTaken"
-    , "contents" .= ([] :: Array String)
-    ]
   toJSON (InvalidPassword ) = object $
     [ "tag" .= "InvalidPassword"
     , "contents" .= ([] :: Array String)
@@ -52,9 +46,6 @@ instance createUserErrorFromJson ::  FromJSON (CreateUserError ) where
   parseJSON (JObject o) = do
     tag <- o .: "tag"
     case tag of
-      "UsernameOrEmailAlreadyTaken" -> do
-         return UsernameOrEmailAlreadyTaken
-
       "InvalidPassword" -> do
          return InvalidPassword
 
@@ -107,9 +98,9 @@ instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
 
 
 
-data UserCommand uinfo uid sid = VerifySession SessionId (Proxy (Maybe uid))
+data UserCommand uid sid = VerifySession SessionId (Proxy (Maybe uid))
 |
-CreateUser (User (UserAdditionalInfo uinfo)) Text (Proxy ((Either CreateUserExtraError) uid))
+CreateUser User Text (Proxy ((Either CreateUserExtraError) uid))
 |
 AuthUser Text Text Int (Proxy (Maybe sid))
 |
@@ -117,12 +108,12 @@ AuthFacebookUrl Text (Array  Text) (Proxy Text)
 |
 AuthFacebook Text (Array  ((Tuple  Text) Text)) Int (Proxy ((Either FacebookLoginError) sid))
 |
-GetUserById uid (Proxy (Maybe (User (UserAdditionalInfo uinfo))))
+GetUserById uid (Proxy (Maybe User))
 |
 Logout SessionId (Proxy Ok)
 
 
-instance userCommandToJson :: (ToJSON uinfo, ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand uinfo uid sid) where
+instance userCommandToJson :: (ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand uid sid) where
   toJSON (VerifySession x0 x1) = object $
     [ "tag" .= "VerifySession"
     , "contents" .= [toJSON x0, toJSON x1]
@@ -153,7 +144,7 @@ instance userCommandToJson :: (ToJSON uinfo, ToJSON uid, ToJSON sid) =>  ToJSON 
     ]
 
 
-instance userCommandFromJson :: (FromJSON uinfo, FromJSON uid, FromJSON sid) =>  FromJSON (UserCommand uinfo uid sid) where
+instance userCommandFromJson :: (FromJSON uid, FromJSON sid) =>  FromJSON (UserCommand uid sid) where
   parseJSON (JObject o) = do
     tag <- o .: "tag"
     case tag of
@@ -285,35 +276,9 @@ instance createUserExtraErrorFromJson ::  FromJSON (CreateUserExtraError ) where
 
 
 
-data User a = User {
+data User  = User {
   u_name :: Text,
   u_email :: Text,
   u_password :: Password,
-  u_active :: Boolean,
-  u_more :: a
+  u_active :: Boolean
 }
-
-instance userToJSON :: (ToJSON a) => ToJSON (User a) where
-  toJSON (User user) =
-    object
-      [ "name" .= user.u_name
-      , "email" .= user.u_email
-      , "active" .= user.u_active
-      , "more" .= user.u_more
-      ]
-
-instance userFromJSON :: (FromJSON a) => FromJSON (User a) where
-  parseJSON (JObject obj) = do
-    u_name <- obj .: "name"
-    u_email <- obj .: "email"
-    u_password <- pure PasswordHidden
-    u_active <- obj .: "active"
-    u_more <- obj .: "more"
-    return $ User { u_name, u_email, u_password, u_active, u_more }
-
-instance sessionIdToJson ::  ToJSON (SessionId ) where
-  toJSON (SessionId v) = toJSON v.unSessionId
-
-instance sessionIdFromJson ::  FromJSON (SessionId ) where
-  parseJSON (JString v) = return $ SessionId { unSessionId : v }
-  parseJSON _ = fail "Could not parse SessionId"

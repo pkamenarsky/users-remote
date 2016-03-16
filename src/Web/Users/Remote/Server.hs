@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -24,6 +25,7 @@ import qualified Data.Text.Encoding           as TE
 import           Data.Time.Clock
 
 import           Database.PostgreSQL.Simple
+import           Database.PostgreSQL.Simple.SqlQQ
 
 import qualified Facebook                     as FB
 
@@ -39,30 +41,40 @@ import           Web.Users.Postgresql         ()
 import           Web.Users.Remote.Types
 import           Web.Users.Remote.Types.Shared
 
--- FIXME: find a better solution for internal user data
-getInternalUserById :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo) => conn -> U.UserId conn -> IO (Maybe (U.User (UserAdditionalInfo uinfo)))
-getInternalUserById conn uid = do
-  user <- getUserById conn uid
-  return $ flip fmap user $ \user -> user { u_more = userAdditionalInfo (u_more (user :: User (UserBackendInfo uinfo))) }
+initOAuthBackend :: Connection -> IO ()
+initOAuthBackend conn =
+  void $ execute conn
+    [sql|
+          create table if not exists login_facebook (
+             lid             serial references login on delete cascade,
+             fb_id           varchar(64)    not null unique,
+             fb_email        varchar(128)   unique,
+             fb_info         jsonb
+          );
+    |]
 
-handleUserCommand :: forall uinfo conn. (UserStorageBackend conn, FromJSON uinfo, ToJSON uinfo, Default uinfo)
-                  => conn
+queryOAuthInfo :: Connection -> UserId Connection -> IO (Maybe UserProviderInfo)
+queryOAuthInfo = return Nothing
+
+handleUserCommand :: (UserStorageBackend Connection)
+                  => Connection
                   -> FB.Credentials
                   -> C.Manager
-                  -> UserCommand uinfo (U.UserId conn) SessionId
+                  -> UserCommand (U.UserId Connection) SessionId
                   -> IO Value
 handleUserCommand conn _ _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
 
 handleUserCommand conn _ _ (AuthUser name pwd t r) = respond r <$> do
-  join <$> withAuthUser conn name verifyUser createSession'
-    where
-      createSession' uid = createSession conn uid (fromIntegral t)
+  uid <- getUserIdByName conn name
 
-      -- don't allow facebook users to login with a password
-      verifyUser :: User (UserBackendInfo uinfo) -> Bool
-      verifyUser user = case userProviderInfo $ u_more user of
-        None -> verifyPassword (PasswordPlain pwd) $ u_password user
-        FacebookInfo _ _ -> False
+  case uid of
+    Just uid -> do
+      fbinfo <- queryOAuthInfo conn uid
+
+      case fbinfo of
+        Nothing -> authUser conn name pwd (fromIntegral t)
+        _ -> return Nothing
+    Nothing -> return Nothing
 
 handleUserCommand _ cred manager (AuthFacebookUrl url perms r) = respond r <$> do
   FB.runFacebookT cred manager $
