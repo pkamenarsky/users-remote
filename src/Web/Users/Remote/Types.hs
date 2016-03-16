@@ -17,6 +17,7 @@ import           Database.PostgreSQL.Simple.ToField     (ToField(..))
 import qualified Facebook                               as FB
 
 import           Web.Users.Types                        hiding (UserId)
+import           Web.Users.Types                        as U
 
 type UserId = Int64
 
@@ -37,6 +38,11 @@ data Config udata err = Config
 data OAuthProviderInfo = FacebookInfo FB.UserId (Maybe T.Text)
                          deriving Show
 
-data FacebookLoginError = UserEmailEmptyError
-                        | CreateSessionError
-                        | CreateUserError CreateUserError
+data CreateUserValidationError err
+  = CreateUserError U.CreateUserError
+  | CreateUserValidationError err
+
+data FacebookLoginError
+  = FacebookUserEmailEmptyError
+  | FacebookCreateSessionError
+  | FacebookCreateUserError CreateUserError

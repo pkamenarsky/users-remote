@@ -60,24 +60,24 @@ instance createUserErrorFromJson ::  FromJSON (CreateUserError ) where
 
 
 
-data FacebookLoginError  = UserEmailEmptyError 
+data FacebookLoginError  = FacebookUserEmailEmptyError 
 |
-CreateSessionError 
+FacebookCreateSessionError 
 |
-CreateUserError CreateUserError
+FacebookCreateUserError CreateUserError
 
 
 instance facebookLoginErrorToJson ::  ToJSON (FacebookLoginError ) where
-  toJSON (UserEmailEmptyError ) = object $
-    [ "tag" .= "UserEmailEmptyError"
+  toJSON (FacebookUserEmailEmptyError ) = object $
+    [ "tag" .= "FacebookUserEmailEmptyError"
     , "contents" .= ([] :: Array String)
     ]
-  toJSON (CreateSessionError ) = object $
-    [ "tag" .= "CreateSessionError"
+  toJSON (FacebookCreateSessionError ) = object $
+    [ "tag" .= "FacebookCreateSessionError"
     , "contents" .= ([] :: Array String)
     ]
-  toJSON (CreateUserError x0) = object $
-    [ "tag" .= "CreateUserError"
+  toJSON (FacebookCreateUserError x0) = object $
+    [ "tag" .= "FacebookCreateUserError"
     , "contents" .= toJSON x0
     ]
 
@@ -86,21 +86,21 @@ instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
   parseJSON (JObject o) = do
     tag <- o .: "tag"
     case tag of
-      "UserEmailEmptyError" -> do
-         return UserEmailEmptyError
+      "FacebookUserEmailEmptyError" -> do
+         return FacebookUserEmailEmptyError
 
-      "CreateSessionError" -> do
-         return CreateSessionError
+      "FacebookCreateSessionError" -> do
+         return FacebookCreateSessionError
 
-      "CreateUserError" -> do
+      "FacebookCreateUserError" -> do
          x0 <- o .: "contents"
-         CreateUserError <$> parseJSON x0
+         FacebookCreateUserError <$> parseJSON x0
 
 
 
-data UserCommand udata uid sid = VerifySession SessionId (Proxy (Maybe uid))
+data UserCommand udata uid sid err = VerifySession SessionId (Proxy (Maybe uid))
 |
-CreateUser Text Text Text (Proxy ((Either CreateUserError) uid))
+CreateUser Text Text Text (Proxy ((Either (CreateUserValidationError err)) uid))
 |
 UpdateUserData sid uid udata (Proxy Boolean)
 |
@@ -115,7 +115,7 @@ GetUserData sid uid (Proxy (Maybe udata))
 Logout sid (Proxy Ok)
 
 
-instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand udata uid sid) where
+instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid, ToJSON err) =>  ToJSON (UserCommand udata uid sid err) where
   toJSON (VerifySession x0 x1) = object $
     [ "tag" .= "VerifySession"
     , "contents" .= [toJSON x0, toJSON x1]
@@ -150,7 +150,7 @@ instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid) =>  ToJSON 
     ]
 
 
-instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid) =>  FromJSON (UserCommand udata uid sid) where
+instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid, FromJSON err) =>  FromJSON (UserCommand udata uid sid err) where
   parseJSON (JObject o) = do
     tag <- o .: "tag"
     case tag of

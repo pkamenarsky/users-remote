@@ -21,6 +21,7 @@ data UserData = UserData { userFullName :: String, userRole :: String }
 data UserDataValidationError = FullNameEmpty
 
 deriveJSON defaultOptions ''UserData
+deriveJSON defaultOptions ''UserDataValidationError
 
 test :: IO ()
 test = do
@@ -47,20 +48,20 @@ test = do
   initOAuthBackend conn
 
   r <- handleUserCommand conn cfg
-    (CreateUser "user2" "user2" "password" Proxy :: UserCommand UserData UserId SessionId)
+    (CreateUser "user2" "user2" "password" Proxy :: UserCommand UserData UserId SessionId UserDataValidationError)
   print r
   case fromJSON r :: (Result (Either CreateUserError UserId)) of
     Success (Right uid) -> do
       r <- handleUserCommand conn cfg
-        (AuthUser "user2" "password" 999999999 Proxy :: UserCommand UserData UserId SessionId)
+        (AuthUser "user2" "password" 999999999 Proxy :: UserCommand UserData UserId SessionId UserDataValidationError)
       print r
       case fromJSON r :: (Result (Maybe SessionId)) of
         Success (Just sid) -> do
           r <- handleUserCommand conn cfg
-            (GetUserData sid uid Proxy :: UserCommand UserData UserId SessionId)
+            (GetUserData sid uid Proxy :: UserCommand UserData UserId SessionId UserDataValidationError)
           print r
           r <- handleUserCommand conn cfg
-            (UpdateUserData sid uid (UserData "NEW DATA" "NEW DATA2") Proxy :: UserCommand UserData UserId SessionId)
+            (UpdateUserData sid uid (UserData "NEW DATA" "NEW DATA2") Proxy :: UserCommand UserData UserId SessionId UserDataValidationError)
           print r
         _ -> return ()
       return ()

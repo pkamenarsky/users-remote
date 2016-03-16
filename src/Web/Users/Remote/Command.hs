@@ -118,10 +118,10 @@ checkRights (Config {..}) conn sid uid = do
             _ -> return False
     _ -> return False
 
-handleUserCommand :: forall udata err. (FromJSON udata, ToJSON udata)
+handleUserCommand :: forall udata err. (ToJSON err, FromJSON udata, ToJSON udata)
                   => Connection
                   -> Config udata err
-                  -> UserCommand udata UserId SessionId
+                  -> UserCommand udata UserId SessionId err
                   -> IO Value
 handleUserCommand conn _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
 
@@ -154,7 +154,7 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args t r) = respond r <$>
   case uid of
     Just uid -> do
       sid <- createSession conn uid (fromIntegral t)
-      return $ maybe (Left CreateSessionError) Right sid
+      return $ maybe (Left FacebookCreateSessionError) Right sid
     Nothing  -> do
       -- create random password just in case
       g <- newStdGen
@@ -163,7 +163,7 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args t r) = respond r <$>
       uid <- createUser conn $ User fbUserName (fromMaybe fbUserName $ FB.userEmail fbUser) (makePassword pwd) True
 
       case uid of
-        Left e -> return $ Left $ CreateUserError e
+        Left e -> return $ Left $ FacebookCreateUserError e
         Right uid -> do
           r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
           r2 <- insertUserData conn uid defaultUserData
@@ -171,8 +171,8 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args t r) = respond r <$>
           case (r1, r2) of
             (True, True) -> do
               sid <- createSession conn uid (fromIntegral t)
-              return $ maybe (Left CreateSessionError) Right sid
-            _ -> return $ Left CreateSessionError
+              return $ maybe (Left FacebookCreateSessionError) Right sid
+            _ -> return $ Left FacebookCreateSessionError
 
 handleUserCommand conn (Config {..}) (CreateUser u_name u_email password r) = respond r <$> do
   uid <- createUser conn (User { u_active = True, u_password = makePassword (PasswordPlain password), .. })
@@ -183,8 +183,8 @@ handleUserCommand conn (Config {..}) (CreateUser u_name u_email password r) = re
         then return $ Right uid
         else do
           deleteUser conn uid
-          return $ Left UsernameAlreadyTaken
-    _ -> return uid
+          return $ Left $ CreateUserError UsernameAlreadyTaken
+    Left e -> return $ Left $ CreateUserError e
 
 handleUserCommand conn cfg (UpdateUserData sid uid udata r) = respond r <$> do
   rights <- checkRights cfg conn sid uid

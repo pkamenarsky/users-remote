@@ -19,9 +19,9 @@ import           Web.Users.Remote.Types
 
 data Ok = Ok
 
-data UserCommand udata uid sid
+data UserCommand udata uid sid err
   = VerifySession SessionId (Proxy (Maybe uid))
-  | CreateUser T.Text T.Text T.Text (Proxy (Either CreateUserError uid))
+  | CreateUser T.Text T.Text T.Text (Proxy (Either (CreateUserValidationError err) uid))
   | UpdateUserData sid uid udata (Proxy Bool)
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
@@ -34,6 +34,7 @@ deriveJSON options ''Ok
 deriveJSON options ''Proxy
 deriveJSON options ''UserCommand
 
+deriveJSON options ''CreateUserValidationError
 deriveJSON options ''CreateUserError
 deriveJSON options ''NominalDiffTime
 deriveJSON options ''PasswordPlain
