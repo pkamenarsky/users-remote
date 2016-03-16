@@ -95,7 +95,33 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
-handleUserCommand :: forall udata. (Default udata, Ord udata, FromJSON udata, ToJSON udata)
+class OrdAccessRights a where
+  cmpAccessRighs :: a -> a -> Ordering
+
+checkRights :: forall udata. (Default udata, OrdAccessRights udata, FromJSON udata, ToJSON udata)
+            => Proxy udata
+            -> Connection
+            -> SessionId
+            -> UserId
+            -> IO Bool
+checkRights _ conn sid uid = do
+  uidMine <- verifySession conn sid (fromIntegral 0)
+  case uidMine of
+    Just uidMine -> do
+      if uidMine == uid
+        then return True
+        else do
+          udataMine <- queryUserData conn uidMine :: IO (Maybe udata)
+          udataTheirsOld <- queryUserData conn uid :: IO (Maybe udata)
+
+          -- only update user data if we have the access rights
+          case (udataMine, udataTheirsOld) of
+            (Just udataMine, Just udataTheirsOld)
+              | udataMine `cmpAccessRighs` udataTheirsOld == GT -> return True
+            _ -> return False
+    _ -> return False
+
+handleUserCommand :: forall udata. (Default udata, OrdAccessRights udata, FromJSON udata, ToJSON udata)
                   => Connection
                   -> FB.Credentials
                   -> C.Manager
@@ -164,17 +190,19 @@ handleUserCommand conn cred manager (CreateUser u_name u_email password r) = res
           return $ Left UsernameAlreadyTaken
     _ -> return uid
 
-handleUserCommand conn cred manager (UpdateUserData sid udata r) = respond r <$> do
-  uid <- verifySession conn sid (fromIntegral 0)
-  case uid of
-    Just uid -> updateUserData conn uid udata
-    _ -> return False
+handleUserCommand conn cred manager (UpdateUserData sid uid udata r) = respond r <$> do
+  rights <- checkRights (undefined :: Proxy udata) conn sid uid
 
-handleUserCommand conn cred manager (GetUserData sid r) = respond r <$> do
-  uid <- verifySession conn sid (fromIntegral 0)
-  case uid of
-    Just uid -> queryUserData conn uid
-    _ -> return Nothing
+  if rights
+    then updateUserData conn uid udata
+    else return False
+
+handleUserCommand conn cred manager (GetUserData sid uid r) = respond r <$> do
+  rights <- checkRights (undefined :: Proxy udata) conn sid uid
+
+  if rights
+    then queryUserData conn uid
+    else return Nothing
 
 handleUserCommand conn cred manager (Logout sid r) = respond r <$> do
   destroySession conn sid
