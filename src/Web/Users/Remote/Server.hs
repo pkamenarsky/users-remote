@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Web.Users.Remote.Server where
+module Web.Users.Remote.Server (handleUserCommand, initOAuthBackend) where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class
@@ -70,9 +70,10 @@ queryOAuthInfo conn uid = do
     [(fbId, fbEmail)] -> return $ Just (FacebookInfo fbId fbEmail)
     _ -> return Nothing
 
-insertOAuthInfo :: Connection -> UserId -> OAuthProviderInfo -> IO ()
-insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) =
-   void $ execute conn [sql|insert into facebook_login (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (uid, fbId, fbEmail)
+insertOAuthInfo :: Connection -> UserId -> OAuthProviderInfo -> IO Bool
+insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) = do
+   r <- execute conn [sql|insert into login_facebook (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (uid, fbId, fbEmail)
+   return (r > 0)
 
 queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe ud)
 queryUserData conn uid = do
@@ -83,14 +84,21 @@ queryUserData conn uid = do
       _ -> return Nothing
     _ -> return Nothing
 
-insertUserData :: ToJSON ud => Connection -> UserId -> ud -> IO ()
-insertUserData conn uid udata =
-   void $ execute conn [sql|insert into facebook_login (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (Only $ toJSON udata)
+insertUserData :: ToJSON ud => Connection -> UserId -> ud -> IO Bool
+insertUserData conn uid udata = do
+   r <- execute conn [sql|insert into login_user_data (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (Only $ toJSON udata)
+   return (r > 0)
 
-handleUserCommand :: Connection
+updateUserData :: ToJSON ud => Connection -> UserId -> ud -> IO Bool
+updateUserData conn uid udata = do
+   r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
+   return (r > 0)
+
+handleUserCommand :: (FromJSON udata, ToJSON udata)
+                  => Connection
                   -> FB.Credentials
                   -> C.Manager
-                  -> UserCommand UserId SessionId
+                  -> UserCommand udata UserId SessionId
                   -> IO Value
 handleUserCommand conn _ _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
 
@@ -110,7 +118,7 @@ handleUserCommand _ cred manager (AuthFacebookUrl url perms r) = respond r <$> d
   FB.runFacebookT cred manager $
     FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
-handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> do
+handleUserCommand conn cred manager (AuthFacebook url args udata t r) = respond r <$> do
   -- try to fetch facebook user
   fbUser <- runResourceT $ FB.runFacebookT cred manager $ do
     token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
@@ -134,15 +142,38 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
       case uid of
         Left e -> return $ Left $ CreateUserError e
         Right uid -> do
-          insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
-          sid <- createSession conn uid (fromIntegral t)
-          return $ maybe (Left CreateSessionError) Right sid
+          r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
+          r2 <- insertUserData conn uid udata
 
-handleUserCommand conn cred manager (CreateUser u_name u_email password r) = respond r <$> do
-  createUser conn (User { u_active = True, u_password = makePassword (PasswordPlain password), .. })
+          case (r1, r2) of
+            (True, True) -> do
+              sid <- createSession conn uid (fromIntegral t)
+              return $ maybe (Left CreateSessionError) Right sid
+            _ -> return $ Left CreateSessionError
 
-handleUserCommand conn cred manager (GetUserById uid r) = respond r <$> do
-  getUserById conn uid
+handleUserCommand conn cred manager (CreateUser u_name u_email password udata r) = respond r <$> do
+  uid <- createUser conn (User { u_active = True, u_password = makePassword (PasswordPlain password), .. })
+  case uid of
+    Right uid -> do
+      r <- insertUserData conn uid udata
+      if r
+        then return $ Right uid
+        else do
+          deleteUser conn uid
+          return $ Left UsernameAlreadyTaken
+    _ -> return uid
+
+handleUserCommand conn cred manager (UpdateUserData sid udata r) = respond r <$> do
+  uid <- verifySession conn sid (fromIntegral 0)
+  case uid of
+    Just uid -> updateUserData conn uid udata
+    _ -> return False
+
+handleUserCommand conn cred manager (GetUserData sid r) = respond r <$> do
+  uid <- verifySession conn sid (fromIntegral 0)
+  case uid of
+    Just uid -> queryUserData conn uid
+    _ -> return Nothing
 
 handleUserCommand conn cred manager (Logout sid r) = respond r <$> do
   destroySession conn sid

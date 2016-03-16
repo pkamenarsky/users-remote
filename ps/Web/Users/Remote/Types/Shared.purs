@@ -98,35 +98,35 @@ instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
 
 
 
-data UserCommand uid sid = VerifySession SessionId (Proxy (Maybe uid))
+data UserCommand udata uid sid = VerifySession SessionId (Proxy (Maybe uid))
 |
-CreateUser Text Text Text (Proxy ((Either CreateUserError) uid))
+CreateUser Text Text Text udata (Proxy ((Either CreateUserError) uid))
 |
-UpdateUser uid Text Text Text (Proxy Ok)
+UpdateUserData sid udata (Proxy Boolean)
 |
 AuthUser Text Text Int (Proxy (Maybe sid))
 |
 AuthFacebookUrl Text (Array  Text) (Proxy Text)
 |
-AuthFacebook Text (Array  ((Tuple  Text) Text)) Int (Proxy ((Either FacebookLoginError) sid))
+AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either FacebookLoginError) sid))
 |
-GetUserById uid (Proxy (Maybe User))
+GetUserData sid (Proxy (Maybe udata))
 |
-Logout SessionId (Proxy Ok)
+Logout sid (Proxy Ok)
 
 
-instance userCommandToJson :: (ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand uid sid) where
+instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand udata uid sid) where
   toJSON (VerifySession x0 x1) = object $
     [ "tag" .= "VerifySession"
     , "contents" .= [toJSON x0, toJSON x1]
     ]
-  toJSON (CreateUser x0 x1 x2 x3) = object $
+  toJSON (CreateUser x0 x1 x2 x3 x4) = object $
     [ "tag" .= "CreateUser"
-    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
-    ]
-  toJSON (UpdateUser x0 x1 x2 x3 x4) = object $
-    [ "tag" .= "UpdateUser"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3, toJSON x4]
+    ]
+  toJSON (UpdateUserData x0 x1 x2) = object $
+    [ "tag" .= "UpdateUserData"
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
     ]
   toJSON (AuthUser x0 x1 x2 x3) = object $
     [ "tag" .= "AuthUser"
@@ -136,12 +136,12 @@ instance userCommandToJson :: (ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand u
     [ "tag" .= "AuthFacebookUrl"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
     ]
-  toJSON (AuthFacebook x0 x1 x2 x3) = object $
+  toJSON (AuthFacebook x0 x1 x2 x3 x4) = object $
     [ "tag" .= "AuthFacebook"
-    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3, toJSON x4]
     ]
-  toJSON (GetUserById x0 x1) = object $
-    [ "tag" .= "GetUserById"
+  toJSON (GetUserData x0 x1) = object $
+    [ "tag" .= "GetUserData"
     , "contents" .= [toJSON x0, toJSON x1]
     ]
   toJSON (Logout x0 x1) = object $
@@ -150,7 +150,7 @@ instance userCommandToJson :: (ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand u
     ]
 
 
-instance userCommandFromJson :: (FromJSON uid, FromJSON sid) =>  FromJSON (UserCommand uid sid) where
+instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid) =>  FromJSON (UserCommand udata uid sid) where
   parseJSON (JObject o) = do
     tag <- o .: "tag"
     case tag of
@@ -159,12 +159,12 @@ instance userCommandFromJson :: (FromJSON uid, FromJSON sid) =>  FromJSON (UserC
          VerifySession <$> parseJSON x0 <*> parseJSON x1
 
       "CreateUser" -> do
-         [x0, x1, x2, x3] <- o .: "contents"
-         CreateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
-
-      "UpdateUser" -> do
          [x0, x1, x2, x3, x4] <- o .: "contents"
-         UpdateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3 <*> parseJSON x4
+         CreateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3 <*> parseJSON x4
+
+      "UpdateUserData" -> do
+         [x0, x1, x2] <- o .: "contents"
+         UpdateUserData <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
 
       "AuthUser" -> do
          [x0, x1, x2, x3] <- o .: "contents"
@@ -175,12 +175,12 @@ instance userCommandFromJson :: (FromJSON uid, FromJSON sid) =>  FromJSON (UserC
          AuthFacebookUrl <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
 
       "AuthFacebook" -> do
-         [x0, x1, x2, x3] <- o .: "contents"
-         AuthFacebook <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
+         [x0, x1, x2, x3, x4] <- o .: "contents"
+         AuthFacebook <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3 <*> parseJSON x4
 
-      "GetUserById" -> do
+      "GetUserData" -> do
          [x0, x1] <- o .: "contents"
-         GetUserById <$> parseJSON x0 <*> parseJSON x1
+         GetUserData <$> parseJSON x0 <*> parseJSON x1
 
       "Logout" -> do
          [x0, x1] <- o .: "contents"
