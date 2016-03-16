@@ -22,6 +22,7 @@ data Ok = Ok
 data UserCommand uid sid
   = VerifySession SessionId (Proxy (Maybe uid))
   | CreateUser T.Text T.Text T.Text (Proxy (Either CreateUserError uid))
+  | UpdateUser uid T.Text T.Text T.Text (Proxy Ok)
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] Int (Proxy (Either FacebookLoginError sid))

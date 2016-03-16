@@ -55,10 +55,15 @@ initOAuthBackend conn =
     ()
 
 queryOAuthInfo :: Connection -> UserId -> IO (Maybe OAuthProviderInfo)
-queryOAuthInfo conn uid = return Nothing
+queryOAuthInfo conn uid = do
+  r <- query conn [sql|select fb_id, fb_email from login_facebook where lid = ? limit 1;|] (Only uid)
+  case r of
+    [(fbId, fbEmail)] -> return $ Just (FacebookInfo fbId fbEmail)
+    _ -> return Nothing
 
 insertOAuthInfo :: Connection -> UserId -> OAuthProviderInfo -> IO ()
-insertOAuthInfo = undefined
+insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) =
+   void $ execute conn [sql|insert into facebook_login (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (uid, fbId, fbEmail)
 
 handleUserCommand :: Connection
                   -> FB.Credentials
@@ -101,17 +106,13 @@ handleUserCommand conn cred manager (AuthFacebook url args t r) = respond r <$> 
       -- create random password just in case
       g <- newStdGen
       let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
-      uid <- createUser conn
-            $ User fbUserName (fromMaybe fbUserName $ FB.userEmail fbUser) (makePassword pwd) True
-              {-
-              (UserBackendInfo
-                (UserAdditionalInfo (fromMaybe "Facebook User" $ FB.userName fbUser) defaultValue)
-                (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser)) :: UserBackendInfo uinfo)
-              -}
+
+      uid <- createUser conn $ User fbUserName (fromMaybe fbUserName $ FB.userEmail fbUser) (makePassword pwd) True
 
       case uid of
         Left e -> return $ Left $ CreateUserError e
         Right uid -> do
+          insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
           sid <- createSession conn uid (fromIntegral t)
           return $ maybe (Left CreateSessionError) Right sid
 

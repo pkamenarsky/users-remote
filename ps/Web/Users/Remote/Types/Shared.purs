@@ -102,6 +102,8 @@ data UserCommand uid sid = VerifySession SessionId (Proxy (Maybe uid))
 |
 CreateUser Text Text Text (Proxy ((Either CreateUserError) uid))
 |
+UpdateUser uid Text Text Text (Proxy Ok)
+|
 AuthUser Text Text Int (Proxy (Maybe sid))
 |
 AuthFacebookUrl Text (Array  Text) (Proxy Text)
@@ -121,6 +123,10 @@ instance userCommandToJson :: (ToJSON uid, ToJSON sid) =>  ToJSON (UserCommand u
   toJSON (CreateUser x0 x1 x2 x3) = object $
     [ "tag" .= "CreateUser"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
+    ]
+  toJSON (UpdateUser x0 x1 x2 x3 x4) = object $
+    [ "tag" .= "UpdateUser"
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3, toJSON x4]
     ]
   toJSON (AuthUser x0 x1 x2 x3) = object $
     [ "tag" .= "AuthUser"
@@ -155,6 +161,10 @@ instance userCommandFromJson :: (FromJSON uid, FromJSON sid) =>  FromJSON (UserC
       "CreateUser" -> do
          [x0, x1, x2, x3] <- o .: "contents"
          CreateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
+
+      "UpdateUser" -> do
+         [x0, x1, x2, x3, x4] <- o .: "contents"
+         UpdateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3 <*> parseJSON x4
 
       "AuthUser" -> do
          [x0, x1, x2, x3] <- o .: "contents"
