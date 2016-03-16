@@ -5,7 +5,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Web.Users.Remote.Command (handleUserCommand, initOAuthBackend) where
+module Web.Users.Remote.Command
+  ( handleUserCommand
+  , initOAuthBackend
+  , queryUserData
+  ) where
 
 import           Control.Arrow
 import           Control.Monad.IO.Class
