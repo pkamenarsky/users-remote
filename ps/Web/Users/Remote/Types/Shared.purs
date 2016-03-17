@@ -266,25 +266,6 @@ instance okFromJson ::  FromJSON (Ok ) where
          return Ok
 
 
-
-instance userToJSON :: (ToJSON a) => ToJSON (User a) where
-  toJSON (User user) =
-    object
-      [ "name" .= user.u_name
-      , "email" .= user.u_email
-      , "active" .= user.u_active
-      , "more" .= user.u_more
-      ]
-
-instance userFromJSON :: (FromJSON a) => FromJSON (User a) where
-  parseJSON (JObject obj) = do
-    u_name <- obj .: "name"
-    u_email <- obj .: "email"
-    u_password <- pure PasswordHidden
-    u_active <- obj .: "active"
-    u_more <- obj .: "more"
-    return $ User { u_name, u_email, u_password, u_active, u_more }
-
 instance sessionIdToJson ::  ToJSON (SessionId ) where
   toJSON (SessionId v) = toJSON v.unSessionId
 
