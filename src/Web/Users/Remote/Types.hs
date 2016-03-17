@@ -8,6 +8,8 @@ import           Data.Aeson.TH
 import           Data.Int
 import qualified Data.Text                              as T
 
+import qualified Facebook                               as FB
+
 import qualified Network.HTTP.Conduit                   as C
 
 import           Database.PostgreSQL.Simple             (Connection)
@@ -30,6 +32,7 @@ data Config udata err = Config
   { cmpAccessRights :: udata -> udata -> Ordering
   , validateUserData :: udata -> Either err ()
   , maskUserDataFromClient :: udata -> udata
+  , augmentUserDataWithFbUser :: FB.User -> udata -> udata
 
   , fbCredentials :: FB.Credentials
   , httpManager :: C.Manager

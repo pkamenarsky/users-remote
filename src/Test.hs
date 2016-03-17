@@ -37,6 +37,7 @@ test = do
             then Left FullNameEmpty
             else Right ()
         , maskUserDataFromClient = id
+        , augmentUserDataWithFbUser = \_ ud -> ud
 
         , fbCredentials = undefined
         , httpManager = undefined

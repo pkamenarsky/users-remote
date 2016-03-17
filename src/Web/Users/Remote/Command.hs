@@ -170,7 +170,7 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond
         Left e -> return $ Left $ FacebookCreateUserError e
         Right uid -> do
           r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
-          r2 <- insertUserData conn uid (maskUserDataFromClient udata)
+          r2 <- insertUserData conn uid (augmentUserDataWithFbUser fbUser $ maskUserDataFromClient udata)
 
           case (r1, r2) of
             (True, True) -> do
