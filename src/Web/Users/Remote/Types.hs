@@ -45,7 +45,8 @@ data CreateUserValidationError err
   = CreateUserError U.CreateUserError
   | CreateUserValidationError err
 
-data FacebookLoginError
+data FacebookLoginError err
   = FacebookUserEmailEmptyError
   | FacebookCreateSessionError
   | FacebookCreateUserError CreateUserError
+  | FacebookUserValidationError err

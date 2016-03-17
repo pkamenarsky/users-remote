@@ -90,14 +90,16 @@ instance createUserErrorFromJson ::  FromJSON (CreateUserError ) where
 
 
 
-data FacebookLoginError  = FacebookUserEmailEmptyError 
+data FacebookLoginError err = FacebookUserEmailEmptyError 
 |
 FacebookCreateSessionError 
 |
 FacebookCreateUserError CreateUserError
+|
+FacebookUserValidationError err
 
 
-instance facebookLoginErrorToJson ::  ToJSON (FacebookLoginError ) where
+instance facebookLoginErrorToJson :: (ToJSON err) =>  ToJSON (FacebookLoginError err) where
   toJSON (FacebookUserEmailEmptyError ) = object $
     [ "tag" .= "FacebookUserEmailEmptyError"
     , "contents" .= ([] :: Array String)
@@ -110,9 +112,13 @@ instance facebookLoginErrorToJson ::  ToJSON (FacebookLoginError ) where
     [ "tag" .= "FacebookCreateUserError"
     , "contents" .= toJSON x0
     ]
+  toJSON (FacebookUserValidationError x0) = object $
+    [ "tag" .= "FacebookUserValidationError"
+    , "contents" .= toJSON x0
+    ]
 
 
-instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
+instance facebookLoginErrorFromJson :: (FromJSON err) =>  FromJSON (FacebookLoginError err) where
   parseJSON (JObject o) = do
     tag <- o .: "tag"
     case tag of
@@ -126,6 +132,10 @@ instance facebookLoginErrorFromJson ::  FromJSON (FacebookLoginError ) where
          x0 <- o .: "contents"
          FacebookCreateUserError <$> parseJSON x0
 
+      "FacebookUserValidationError" -> do
+         x0 <- o .: "contents"
+         FacebookUserValidationError <$> parseJSON x0
+
 
 
 data UserCommand udata uid sid err = VerifySession SessionId (Proxy (Maybe uid))
@@ -138,7 +148,7 @@ AuthUser Text Text Int (Proxy (Maybe sid))
 |
 AuthFacebookUrl Text (Array  Text) (Proxy Text)
 |
-AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either FacebookLoginError) sid))
+AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either (FacebookLoginError err)) sid))
 |
 GetUserData sid uid (Proxy (Maybe udata))
 |
