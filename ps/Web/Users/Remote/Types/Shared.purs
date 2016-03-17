@@ -42,7 +42,7 @@ instance createUserValidationErrorFromJson :: (FromJSON err) =>  FromJSON (Creat
          x0 <- o .: "contents"
          CreateUserValidationError <$> parseJSON x0
 
-
+  parseJSON x = fail $ "Could not parse object: " ++ show x
 
 data CreateUserError  = InvalidPassword 
 |
@@ -88,7 +88,7 @@ instance createUserErrorFromJson ::  FromJSON (CreateUserError ) where
       "UsernameAndEmailAlreadyTaken" -> do
          return UsernameAndEmailAlreadyTaken
 
-
+  parseJSON x = fail $ "Could not parse object: " ++ show x
 
 data FacebookLoginError err = FacebookUserEmailEmptyError 
 |
@@ -136,7 +136,7 @@ instance facebookLoginErrorFromJson :: (FromJSON err) =>  FromJSON (FacebookLogi
          x0 <- o .: "contents"
          FacebookUserValidationError <$> parseJSON x0
 
-
+  parseJSON x = fail $ "Could not parse object: " ++ show x
 
 data UserCommand udata uid sid err = VerifySession SessionId (Proxy (Maybe uid))
 |
@@ -226,7 +226,7 @@ instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid, Fro
          [x0, x1] <- o .: "contents"
          Logout <$> parseJSON x0 <*> parseJSON x1
 
-
+  parseJSON x = fail $ "Could not parse object: " ++ show x
 
 data Password  = PasswordHash Text
 |
@@ -255,7 +255,7 @@ instance passwordFromJson ::  FromJSON (Password ) where
       "PasswordHidden" -> do
          return PasswordHidden
 
-
+  parseJSON x = fail $ "Could not parse object: " ++ show x
 
 newtype SessionId  = SessionId {
   unSessionId :: Text
