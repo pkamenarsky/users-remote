@@ -99,6 +99,11 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
+queryUsers :: Connection -> T.Text -> IO [UserId]
+queryUsers conn pattern = do
+  rs <- query conn [sql| select lid from login where username like ? or email like ? |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
+  return [ r | Only r <- rs ]
+
 checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
             => Config udata err
             -> Connection
