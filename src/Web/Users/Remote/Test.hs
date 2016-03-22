@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Test where
+module Web.Users.Remote.Test where
 
 import Data.Aeson
 import Data.Aeson.TH
