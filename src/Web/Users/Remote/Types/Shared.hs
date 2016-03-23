@@ -59,7 +59,7 @@ mkExports (Just ((intercalate "\n"
   , "  parseJSON _ = fail \"Could not parse SessionId\""
   , ""
   ])
-  , "../ps/Web/Users/Remote/Types/Shared.purs"))
+  , "ps/Web/Users/Remote/Types/Shared.purs"))
 
   [ (''CreateUserValidationError, True)
   , (''CreateUserError, True)

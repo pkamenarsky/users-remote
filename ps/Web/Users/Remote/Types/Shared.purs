@@ -152,6 +152,8 @@ AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either (Faceb
 |
 GetUserData sid uid (Proxy (Maybe udata))
 |
+QueryUsers Text (Proxy (Array  udata))
+|
 Logout sid (Proxy Ok)
 
 
@@ -183,6 +185,10 @@ instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid, ToJSON err)
   toJSON (GetUserData x0 x1 x2) = object $
     [ "tag" .= "GetUserData"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
+    ]
+  toJSON (QueryUsers x0 x1) = object $
+    [ "tag" .= "QueryUsers"
+    , "contents" .= [toJSON x0, toJSON x1]
     ]
   toJSON (Logout x0 x1) = object $
     [ "tag" .= "Logout"
@@ -221,6 +227,10 @@ instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid, Fro
       "GetUserData" -> do
          [x0, x1, x2] <- o .: "contents"
          GetUserData <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
+
+      "QueryUsers" -> do
+         [x0, x1] <- o .: "contents"
+         QueryUsers <$> parseJSON x0 <*> parseJSON x1
 
       "Logout" -> do
          [x0, x1] <- o .: "contents"
