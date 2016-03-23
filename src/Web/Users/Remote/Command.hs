@@ -9,6 +9,7 @@ module Web.Users.Remote.Command
   ( handleUserCommand
   , initOAuthBackend
   , queryUserData
+  , queryUsers
   ) where
 
 import           Control.Arrow
@@ -89,6 +90,7 @@ queryUserData conn uid = do
       _ -> return Nothing
     _ -> return Nothing
 
+-- TODO: insert user data in a searchable format
 insertUserData :: ToJSON ud => Connection -> UserId -> ud -> IO Bool
 insertUserData conn uid udata = do
    r <- execute conn [sql|insert into login_user_data (lid, user_data) values (?, ?)|] (uid, toJSON udata)
@@ -101,7 +103,12 @@ updateUserData conn uid udata = do
 
 queryUsers :: FromJSON ud => Connection -> T.Text -> IO [ud]
 queryUsers conn pattern = do
-  rs <- query conn [sql| select lgn_ud.user_data where lgn.username like ? or lgn.email like ? from login lgn inner join login_user_data lgn_ud on lgn.lid = lgn_ud.lid |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
+  rs <- query conn
+    [sql| select login_user_data.user_data
+          from login inner join login_user_data
+            on login.lid = login_user_data.lid
+          where login.username like ? or login.email like ?
+    |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
   return [ r' | Only r <- rs, Success r' <- [fromJSON r] ]
 
 checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
