@@ -1,4 +1,5 @@
 .cabal-sandbox
+.stack-work
 db
 cabal.sandbox.config
 dist
