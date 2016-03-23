@@ -99,10 +99,10 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
-queryUsers :: Connection -> T.Text -> IO [UserId]
+queryUsers :: FromJSON ud => Connection -> T.Text -> IO [ud]
 queryUsers conn pattern = do
-  rs <- query conn [sql| select lid from login where username like ? or email like ? |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
-  return [ r | Only r <- rs ]
+  rs <- query conn [sql| select lgn_ud.user_data where lgn.username like ? or lgn.email like ? from login lgn inner join login_user_data lgn_ud on lgn.lid = lgn_ud.lid |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
+  return [ r' | Only r <- rs, Success r' <- [fromJSON r] ]
 
 checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
             => Config udata err
@@ -214,6 +214,9 @@ handleUserCommand conn cfg (GetUserData sid uid r) = respond r <$> do
   if rights
     then queryUserData conn uid
     else return Nothing
+
+handleUserCommand conn cfg (QueryUsers query r) = respond r <$> do
+  queryUsers conn query
 
 handleUserCommand conn (Config {..}) (Logout sid r) = respond r <$> do
   destroySession conn sid
