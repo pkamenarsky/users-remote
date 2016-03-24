@@ -158,34 +158,35 @@ handleUserCommand _ (Config {..}) (AuthFacebookUrl url perms r) = respond r <$> 
     FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
 handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond r <$> do
-  case validateUserData udata of
-    Left e -> return $ Left $ FacebookUserValidationError e
-    Right _ -> do
-      -- try to fetch facebook user
-      fbUser <- runResourceT $ FB.runFacebookT fbCredentials httpManager $ do
-        token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
-        FB.getUser "me" [] (Just token)
+  -- try to fetch facebook user
+  fbUser <- runResourceT $ FB.runFacebookT fbCredentials httpManager $ do
+    token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
+    FB.getUser "me" [] (Just token)
 
-      let fbUserName = FB.appId fbCredentials <> FB.idCode (FB.userId fbUser)
+  let fbUserName = FB.appId fbCredentials <> FB.idCode (FB.userId fbUser)
 
-      uid <- getUserIdByName conn fbUserName
+  uid <- getUserIdByName conn fbUserName
 
-      case uid of
-        Just uid -> do
-          sid <- createSession conn uid (fromIntegral t)
-          return $ maybe (Left FacebookCreateSessionError) Right sid
-        Nothing  -> do
-          -- create random password just in case
-          g <- newStdGen
-          let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
+  case uid of
+    Just uid -> do
+      sid <- createSession conn uid (fromIntegral t)
+      return $ maybe (Left FacebookCreateSessionError) Right sid
+    Nothing  -> do
+      -- create random password just in case
+      g <- newStdGen
+      let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
+          udata = augmentUserDataWithFbUser fbUser $ maskUserDataFromClient udata
 
+      case validateUserData udata of
+        Left e -> return $ Left $ FacebookUserValidationError e
+        Right _ -> do
           uid <- createUser conn $ User fbUserName (fromMaybe fbUserName $ FB.userEmail fbUser) (makePassword pwd) True
 
           case uid of
             Left e -> return $ Left $ FacebookCreateUserError e
             Right uid -> do
               r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
-              r2 <- insertUserData conn uid (augmentUserDataWithFbUser fbUser $ maskUserDataFromClient udata)
+              r2 <- insertUserData conn uid udata
 
               case (r1, r2) of
                 (True, True) -> do
