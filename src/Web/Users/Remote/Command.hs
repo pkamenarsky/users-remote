@@ -175,9 +175,9 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond
       -- create random password just in case
       g <- newStdGen
       let pwd = PasswordPlain $ T.pack $ take 32 $ randomRs ('A','z') g
-          udata = augmentUserDataWithFbUser fbUser $ maskUserDataFromClient udata
+          udata' = augmentUserDataWithFbUser fbUser $ maskUserDataFromClient udata
 
-      case validateUserData udata of
+      case validateUserData udata' of
         Left e -> return $ Left $ FacebookUserValidationError e
         Right _ -> do
           uid <- createUser conn $ User fbUserName (fromMaybe fbUserName $ FB.userEmail fbUser) (makePassword pwd) True
@@ -186,7 +186,7 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond
             Left e -> return $ Left $ FacebookCreateUserError e
             Right uid -> do
               r1 <- insertOAuthInfo conn uid (FacebookInfo (FB.userId fbUser) (FB.userEmail fbUser))
-              r2 <- insertUserData conn uid udata
+              r2 <- insertUserData conn uid udata'
 
               case (r1, r2) of
                 (True, True) -> do
