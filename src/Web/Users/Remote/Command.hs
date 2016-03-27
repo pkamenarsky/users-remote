@@ -216,12 +216,8 @@ handleUserCommand conn cfg (UpdateUserData sid uid udata r) = respond r <$> do
     then updateUserData conn uid udata
     else return False
 
-handleUserCommand conn cfg (GetUserData sid uid r) = respond r <$> do
-  rights <- checkRights cfg conn sid uid
-
-  if rights
-    then queryUserData conn uid
-    else return Nothing
+handleUserCommand conn cfg (GetUserData uid r) = respond r <$> do
+  queryUserData conn uid
 
 handleUserCommand conn cfg (QueryUsers query r) = respond r <$> do
   queryUsers conn query
