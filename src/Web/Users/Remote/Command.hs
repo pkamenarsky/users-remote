@@ -101,15 +101,15 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
-queryUsers :: FromJSON ud => Connection -> T.Text -> IO [ud]
+queryUsers :: (FromJSON ud, FromJSON uid) => Connection -> T.Text -> IO [(uid, ud)]
 queryUsers conn pattern = do
   rs <- query conn
-    [sql| select login_user_data.user_data
+    [sql| select login.lid, login_user_data.user_data
           from login inner join login_user_data
             on login.lid = login_user_data.lid
           where login.username like ? or login.email like ?
     |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
-  return [ r' | Only r <- rs, Success r' <- [fromJSON r] ]
+  return [ (uid, ud) | (uid', ud') <- rs, Success uid <- [fromJSON uid'], Success ud <- [fromJSON ud'] ]
 
 checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
             => Config udata err
@@ -149,7 +149,8 @@ handleUserCommand conn _ (AuthUser name pwd t r) = respond r <$> do
       fbinfo <- queryOAuthInfo conn uid
 
       case fbinfo of
-        Nothing -> authUser conn name (PasswordPlain pwd) (fromIntegral t)
+        Nothing -> fmap join $ withAuthUser conn name (\user -> u_active user && verifyPassword (PasswordPlain pwd) (u_password user)) $ \userId ->
+           createSession conn userId (fromIntegral t)
         _ -> return Nothing
     Nothing -> return Nothing
 
@@ -169,8 +170,12 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond
 
   case uid of
     Just uid -> do
-      sid <- createSession conn uid (fromIntegral t)
-      return $ maybe (Left FacebookCreateSessionError) Right sid
+      user <- getUserById conn uid
+      case user of
+        Just user | u_active user -> do
+          sid <- createSession conn uid (fromIntegral t)
+          return $ maybe (Left FacebookCreateSessionError) Right sid
+        _ -> return (Left FacebookUserBanned)
     Nothing  -> do
       -- create random password just in case
       g <- newStdGen

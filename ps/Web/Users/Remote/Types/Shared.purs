@@ -97,6 +97,8 @@ FacebookCreateSessionError
 FacebookCreateUserError CreateUserError
 |
 FacebookUserValidationError err
+|
+FacebookUserBanned 
 
 
 instance facebookLoginErrorToJson :: (ToJSON err) =>  ToJSON (FacebookLoginError err) where
@@ -115,6 +117,10 @@ instance facebookLoginErrorToJson :: (ToJSON err) =>  ToJSON (FacebookLoginError
   toJSON (FacebookUserValidationError x0) = object $
     [ "tag" .= "FacebookUserValidationError"
     , "contents" .= toJSON x0
+    ]
+  toJSON (FacebookUserBanned ) = object $
+    [ "tag" .= "FacebookUserBanned"
+    , "contents" .= ([] :: Array String)
     ]
 
 
@@ -135,6 +141,9 @@ instance facebookLoginErrorFromJson :: (FromJSON err) =>  FromJSON (FacebookLogi
       "FacebookUserValidationError" -> do
          x0 <- o .: "contents"
          FacebookUserValidationError <$> parseJSON x0
+
+      "FacebookUserBanned" -> do
+         return FacebookUserBanned
 
   parseJSON x = fail $ "Could not parse object: " ++ show x
 
@@ -158,7 +167,7 @@ AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either (Faceb
 |
 GetUserData uid (Proxy (Maybe udata))
 |
-QueryUsers Text (Proxy (Array  udata))
+QueryUsers Text (Proxy (Array  ((Tuple  uid) udata)))
 |
 Logout sid (Proxy Ok)
 

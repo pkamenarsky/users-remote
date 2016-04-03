@@ -50,3 +50,4 @@ data FacebookLoginError err
   | FacebookCreateSessionError
   | FacebookCreateUserError CreateUserError
   | FacebookUserValidationError err
+  | FacebookUserBanned
