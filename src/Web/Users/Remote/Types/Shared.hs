@@ -23,6 +23,7 @@ data UserCommand udata uid sid err
   = VerifySession SessionId (Proxy (Maybe uid))
   | CreateUser T.Text T.Text T.Text udata (Proxy (Either (CreateUserValidationError err) uid))
   | UpdateUserData sid uid udata (Proxy Bool)
+  | UpdateUser sid uid User (Proxy (Either UpdateUserError ()))
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] udata Int (Proxy (Either (FacebookLoginError err) sid))
@@ -42,6 +43,7 @@ deriveJSON options ''PasswordPlain
 deriveJSON options ''Password
 
 deriveJSON options ''FacebookLoginError
+deriveJSON options ''UpdateUserError
 
 mkExports (Just ((intercalate "\n"
   [ "module Web.Users.Remote.Types.Shared where"
