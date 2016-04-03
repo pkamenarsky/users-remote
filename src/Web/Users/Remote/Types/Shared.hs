@@ -23,7 +23,9 @@ data UserCommand udata uid sid err
   = VerifySession SessionId (Proxy (Maybe uid))
   | CreateUser T.Text T.Text T.Text udata (Proxy (Either (CreateUserValidationError err) uid))
   | UpdateUserData sid uid udata (Proxy Bool)
-  | UpdateUser sid uid User (Proxy (Either UpdateUserError ()))
+  | BanUser sid uid (Proxy (Either UpdateUserError ()))
+  | SetUserEmail sid uid T.Text (Proxy (Either UpdateUserError ()))
+  | SetUserPassword sid uid T.Text (Proxy (Either UpdateUserError ()))
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] udata Int (Proxy (Either (FacebookLoginError err) sid))
@@ -68,6 +70,7 @@ mkExports (Just ((intercalate "\n"
   , (''FacebookLoginError, True)
   , (''UserCommand, True)
   , (''Password, True)
+  , (''UpdateUserError, True)
   , (''SessionId, False)
   , (''Ok, True)
   ]

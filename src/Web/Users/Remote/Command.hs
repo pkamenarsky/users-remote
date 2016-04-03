@@ -216,11 +216,25 @@ handleUserCommand conn cfg (UpdateUserData sid uid udata r) = respond r <$> do
     then updateUserData conn uid udata
     else return False
 
-handleUserCommand conn cfg (UpdateUser sid uid user r) = respond r <$> do
+handleUserCommand conn cfg (BanUser sid uid r) = respond r <$> do
   rights <- checkRights cfg conn sid uid
 
   if rights
-    then updateUser conn uid (const user)
+    then updateUser conn uid $ \user -> user { u_active = False }
+    else return $ Left UserDoesntExist
+
+handleUserCommand conn cfg (SetUserEmail sid uid email r) = respond r <$> do
+  rights <- checkRights cfg conn sid uid
+
+  if rights
+    then updateUser conn uid $ \user -> user { u_email = email }
+    else return $ Left UserDoesntExist
+
+handleUserCommand conn cfg (SetUserPassword sid uid password r) = respond r <$> do
+  rights <- checkRights cfg conn sid uid
+
+  if rights
+    then updateUser conn uid $ \user -> user { u_password = makePassword (PasswordPlain password) }
     else return $ Left UserDoesntExist
 
 handleUserCommand conn cfg (GetUserData uid r) = respond r <$> do

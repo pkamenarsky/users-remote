@@ -144,7 +144,11 @@ CreateUser Text Text Text udata (Proxy ((Either (CreateUserValidationError err))
 |
 UpdateUserData sid uid udata (Proxy Boolean)
 |
-UpdateUser sid uid User (Proxy ((Either UpdateUserError) Unit ))
+BanUser sid uid (Proxy ((Either UpdateUserError) Unit ))
+|
+SetUserEmail sid uid Text (Proxy ((Either UpdateUserError) Unit ))
+|
+SetUserPassword sid uid Text (Proxy ((Either UpdateUserError) Unit ))
 |
 AuthUser Text Text Int (Proxy (Maybe sid))
 |
@@ -172,8 +176,16 @@ instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid, ToJSON err)
     [ "tag" .= "UpdateUserData"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
     ]
-  toJSON (UpdateUser x0 x1 x2 x3) = object $
-    [ "tag" .= "UpdateUser"
+  toJSON (BanUser x0 x1 x2) = object $
+    [ "tag" .= "BanUser"
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
+    ]
+  toJSON (SetUserEmail x0 x1 x2 x3) = object $
+    [ "tag" .= "SetUserEmail"
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
+    ]
+  toJSON (SetUserPassword x0 x1 x2 x3) = object $
+    [ "tag" .= "SetUserPassword"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
     ]
   toJSON (AuthUser x0 x1 x2 x3) = object $
@@ -218,9 +230,17 @@ instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid, Fro
          [x0, x1, x2, x3] <- o .: "contents"
          UpdateUserData <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
 
-      "UpdateUser" -> do
+      "BanUser" -> do
+         [x0, x1, x2] <- o .: "contents"
+         BanUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
+
+      "SetUserEmail" -> do
          [x0, x1, x2, x3] <- o .: "contents"
-         UpdateUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
+         SetUserEmail <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
+
+      "SetUserPassword" -> do
+         [x0, x1, x2, x3] <- o .: "contents"
+         SetUserPassword <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
 
       "AuthUser" -> do
          [x0, x1, x2, x3] <- o .: "contents"
@@ -274,6 +294,43 @@ instance passwordFromJson ::  FromJSON (Password ) where
 
       "PasswordHidden" -> do
          return PasswordHidden
+
+  parseJSON x = fail $ "Could not parse object: " ++ show x
+
+data UpdateUserError  = UsernameAlreadyExists 
+|
+EmailAlreadyExists 
+|
+UserDoesntExist 
+
+
+instance updateUserErrorToJson ::  ToJSON (UpdateUserError ) where
+  toJSON (UsernameAlreadyExists ) = object $
+    [ "tag" .= "UsernameAlreadyExists"
+    , "contents" .= ([] :: Array String)
+    ]
+  toJSON (EmailAlreadyExists ) = object $
+    [ "tag" .= "EmailAlreadyExists"
+    , "contents" .= ([] :: Array String)
+    ]
+  toJSON (UserDoesntExist ) = object $
+    [ "tag" .= "UserDoesntExist"
+    , "contents" .= ([] :: Array String)
+    ]
+
+
+instance updateUserErrorFromJson ::  FromJSON (UpdateUserError ) where
+  parseJSON (JObject o) = do
+    tag <- o .: "tag"
+    case tag of
+      "UsernameAlreadyExists" -> do
+         return UsernameAlreadyExists
+
+      "EmailAlreadyExists" -> do
+         return EmailAlreadyExists
+
+      "UserDoesntExist" -> do
+         return UserDoesntExist
 
   parseJSON x = fail $ "Could not parse object: " ++ show x
 
