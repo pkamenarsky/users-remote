@@ -30,6 +30,7 @@ import qualified Data.Text.Encoding           as TE
 import           Data.Time.Clock
 
 import           Database.PostgreSQL.Simple
+import           Database.PostgreSQL.Simple.FromField
 import           Database.PostgreSQL.Simple.SqlQQ
 
 import qualified Facebook                     as FB
@@ -81,12 +82,17 @@ insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) = do
    r <- execute conn [sql|insert into login_facebook (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (uid, fbId, fbEmail)
    return (r > 0)
 
-queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe ud)
+queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe (Bool, ud))
 queryUserData conn uid = do
-  r <- query conn [sql|select user_data from login_user_data where lid = ? limit 1;|] (Only uid)
+  r <- query conn
+    [sql| select login_user_data.lid, login_user_data.user_data
+          from login inner join login_user_data
+            on login.lid = login_user_data.lid
+          where login.lid = ? limit 1
+    |] (Only uid)
   case r of
-    [Only ud] -> case fromJSON ud of
-      Success ud -> return ud
+    [(active, ud)] -> case fromJSON ud of
+      Success ud -> return $ Just (active, ud)
       _ -> return Nothing
     _ -> return Nothing
 
@@ -101,15 +107,16 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
-queryUsers :: (FromJSON ud, FromJSON uid) => Connection -> T.Text -> IO [(uid, ud)]
+queryUsers :: (Show uid, FromJSON ud, FromField uid) => Connection -> T.Text -> IO [(Bool, (uid, ud))]
 queryUsers conn pattern = do
   rs <- query conn
-    [sql| select login.lid, login_user_data.user_data
+    [sql| select login.u_active, login_user_data.lid, login_user_data.user_data
           from login inner join login_user_data
             on login.lid = login_user_data.lid
           where login.username like ? or login.email like ?
     |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
-  return [ (uid, ud) | (uid', ud') <- rs, Success uid <- [fromJSON uid'], Success ud <- [fromJSON ud'] ]
+  print rs
+  return [ (active, (uid, ud)) | (active, uid, ud') <- rs, Success ud <- [fromJSON ud'] ]
 
 checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
             => Config udata err
@@ -124,12 +131,12 @@ checkRights (Config {..}) conn sid uid = do
       if uidMine == uid
         then return True
         else do
-          udataMine <- queryUserData conn uidMine :: IO (Maybe udata)
-          udataTheirsOld <- queryUserData conn uid :: IO (Maybe udata)
+          udataMine <- queryUserData conn uidMine :: IO (Maybe (Bool, udata))
+          udataTheirsOld <- queryUserData conn uid :: IO (Maybe (Bool, udata))
 
           -- only update user data if we have the access rights
           case (udataMine, udataTheirsOld) of
-            (Just udataMine, Just udataTheirsOld)
+            (Just (True, udataMine), Just (_, udataTheirsOld))
               | udataMine `cmpAccessRights` udataTheirsOld == GT -> return True
             _ -> return False
     _ -> return False

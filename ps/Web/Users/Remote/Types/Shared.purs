@@ -165,9 +165,9 @@ AuthFacebookUrl Text (Array  Text) (Proxy Text)
 |
 AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either (FacebookLoginError err)) sid))
 |
-GetUserData uid (Proxy (Maybe udata))
+GetUserData uid (Proxy (Maybe ((Tuple  Boolean) udata)))
 |
-QueryUsers Text (Proxy (Array  ((Tuple  uid) udata)))
+QueryUsers Text (Proxy (Array  ((Tuple  Boolean) ((Tuple  uid) udata))))
 |
 Logout sid (Proxy Ok)
 
