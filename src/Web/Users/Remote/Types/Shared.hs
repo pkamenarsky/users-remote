@@ -23,7 +23,7 @@ data UserCommand udata uid sid err
   = VerifySession SessionId (Proxy (Maybe uid))
   | CreateUser T.Text T.Text T.Text udata (Proxy (Either (CreateUserValidationError err) uid))
   | UpdateUserData sid uid udata (Proxy Bool)
-  | BanUser sid uid (Proxy (Either UpdateUserError ()))
+  | SetUserBanStatus sid uid Bool (Proxy (Either UpdateUserError ()))
   | SetUserEmail sid uid T.Text (Proxy (Either UpdateUserError ()))
   | SetUserPassword sid uid T.Text (Proxy (Either UpdateUserError ()))
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))

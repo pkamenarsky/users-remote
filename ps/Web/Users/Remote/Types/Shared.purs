@@ -153,7 +153,7 @@ CreateUser Text Text Text udata (Proxy ((Either (CreateUserValidationError err))
 |
 UpdateUserData sid uid udata (Proxy Boolean)
 |
-BanUser sid uid (Proxy ((Either UpdateUserError) Unit ))
+SetUserBanStatus sid uid Boolean (Proxy ((Either UpdateUserError) Unit ))
 |
 SetUserEmail sid uid Text (Proxy ((Either UpdateUserError) Unit ))
 |
@@ -185,9 +185,9 @@ instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid, ToJSON err)
     [ "tag" .= "UpdateUserData"
     , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
     ]
-  toJSON (BanUser x0 x1 x2) = object $
-    [ "tag" .= "BanUser"
-    , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
+  toJSON (SetUserBanStatus x0 x1 x2 x3) = object $
+    [ "tag" .= "SetUserBanStatus"
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2, toJSON x3]
     ]
   toJSON (SetUserEmail x0 x1 x2 x3) = object $
     [ "tag" .= "SetUserEmail"
@@ -239,9 +239,9 @@ instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid, Fro
          [x0, x1, x2, x3] <- o .: "contents"
          UpdateUserData <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
 
-      "BanUser" -> do
-         [x0, x1, x2] <- o .: "contents"
-         BanUser <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
+      "SetUserBanStatus" -> do
+         [x0, x1, x2, x3] <- o .: "contents"
+         SetUserBanStatus <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2 <*> parseJSON x3
 
       "SetUserEmail" -> do
          [x0, x1, x2, x3] <- o .: "contents"

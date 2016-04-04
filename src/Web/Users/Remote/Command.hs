@@ -85,7 +85,7 @@ insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) = do
 queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe (Bool, ud))
 queryUserData conn uid = do
   r <- query conn
-    [sql| select login_user_data.lid, login_user_data.user_data
+    [sql| select login.is_active, login_user_data.user_data
           from login inner join login_user_data
             on login.lid = login_user_data.lid
           where login.lid = ? limit 1
@@ -110,7 +110,7 @@ updateUserData conn uid udata = do
 queryUsers :: (Show uid, FromJSON ud, FromField uid) => Connection -> T.Text -> IO [(Bool, (uid, ud))]
 queryUsers conn pattern = do
   rs <- query conn
-    [sql| select login.u_active, login_user_data.lid, login_user_data.user_data
+    [sql| select login.is_active, login_user_data.lid, login_user_data.user_data
           from login inner join login_user_data
             on login.lid = login_user_data.lid
           where login.username like ? or login.email like ?
@@ -228,11 +228,11 @@ handleUserCommand conn cfg (UpdateUserData sid uid udata r) = respond r <$> do
     then updateUserData conn uid udata
     else return False
 
-handleUserCommand conn cfg (BanUser sid uid r) = respond r <$> do
+handleUserCommand conn cfg (SetUserBanStatus sid uid status r) = respond r <$> do
   rights <- checkRights cfg conn sid uid
 
   if rights
-    then updateUser conn uid $ \user -> user { u_active = False }
+    then updateUser conn uid $ \user -> user { u_active = status }
     else return $ Left UserDoesntExist
 
 handleUserCommand conn cfg (SetUserEmail sid uid email r) = respond r <$> do
