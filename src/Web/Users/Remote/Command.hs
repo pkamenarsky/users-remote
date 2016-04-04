@@ -82,17 +82,17 @@ insertOAuthInfo conn uid (FacebookInfo fbId fbEmail) = do
    r <- execute conn [sql|insert into login_facebook (lid, fb_id, fb_email, fb_info) values (?, ?, ?, '{}')|] (uid, fbId, fbEmail)
    return (r > 0)
 
-queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe (Bool, ud))
+queryUserData :: (FromJSON ud) => Connection -> UserId -> IO (Maybe (T.Text, (Bool, ud)))
 queryUserData conn uid = do
   r <- query conn
-    [sql| select login.is_active, login_user_data.user_data
+    [sql| select login.email, login.is_active, login_user_data.user_data
           from login inner join login_user_data
             on login.lid = login_user_data.lid
           where login.lid = ? limit 1
     |] (Only uid)
   case r of
-    [(active, ud)] -> case fromJSON ud of
-      Success ud -> return $ Just (active, ud)
+    [(email, active, ud)] -> case fromJSON ud of
+      Success ud -> return $ Just (email, (active, ud))
       _ -> return Nothing
     _ -> return Nothing
 
@@ -113,8 +113,8 @@ queryUsers conn pattern = do
     [sql| select login.is_active, login_user_data.lid, login_user_data.user_data
           from login inner join login_user_data
             on login.lid = login_user_data.lid
-          where login.username like ? or login.email like ?
-    |] ("%" <> pattern <> "%", "%" <> pattern <> "%")
+          where login.username ilike ? or login.email ilike ? or login_user_data.user_data->>'userFullName' ilike ?
+    |] ("%" <> pattern <> "%", "%" <> pattern <> "%", "%" <> pattern <> "%")
   print rs
   return [ (active, (uid, ud)) | (active, uid, ud') <- rs, Success ud <- [fromJSON ud'] ]
 
@@ -131,12 +131,12 @@ checkRights (Config {..}) conn sid uid = do
       if uidMine == uid
         then return True
         else do
-          udataMine <- queryUserData conn uidMine :: IO (Maybe (Bool, udata))
-          udataTheirsOld <- queryUserData conn uid :: IO (Maybe (Bool, udata))
+          udataMine <- queryUserData conn uidMine :: IO (Maybe (T.Text, (Bool, udata)))
+          udataTheirsOld <- queryUserData conn uid :: IO (Maybe (T.Text, (Bool, udata)))
 
           -- only update user data if we have the access rights
           case (udataMine, udataTheirsOld) of
-            (Just (True, udataMine), Just (_, udataTheirsOld))
+            (Just (_, (True, udataMine)), Just (_, (_, udataTheirsOld)))
               | udataMine `cmpAccessRights` udataTheirsOld == GT -> return True
             _ -> return False
     _ -> return False
