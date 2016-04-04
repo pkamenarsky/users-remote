@@ -153,11 +153,11 @@ CreateUser Text Text Text udata (Proxy ((Either (CreateUserValidationError err))
 |
 UpdateUserData sid uid udata (Proxy Boolean)
 |
-SetUserBanStatus sid uid Boolean (Proxy ((Either UpdateUserError) Unit ))
+SetUserBanStatus sid uid Boolean (Proxy ((Either UpdateUserError) Ok))
 |
-SetUserEmail sid uid Text (Proxy ((Either UpdateUserError) Unit ))
+SetUserEmail sid uid Text (Proxy ((Either UpdateUserError) Ok))
 |
-SetUserPassword sid uid Text (Proxy ((Either UpdateUserError) Unit ))
+SetUserPassword sid Text Text (Proxy ((Either UpdateUserError) Ok))
 |
 AuthUser Text Text Int (Proxy (Maybe sid))
 |

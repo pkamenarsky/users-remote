@@ -232,22 +232,32 @@ handleUserCommand conn cfg (SetUserBanStatus sid uid status r) = respond r <$> d
   rights <- checkRights cfg conn sid uid
 
   if rights
-    then updateUser conn uid $ \user -> user { u_active = status }
+    then fmap (fmap $ const Ok) $ updateUser conn uid $ \user -> user { u_active = status }
     else return $ Left UserDoesntExist
 
 handleUserCommand conn cfg (SetUserEmail sid uid email r) = respond r <$> do
   rights <- checkRights cfg conn sid uid
 
   if rights
-    then updateUser conn uid $ \user -> user { u_email = email }
+    then fmap (fmap $ const Ok) $ updateUser conn uid $ \user -> user { u_email = email }
     else return $ Left UserDoesntExist
 
-handleUserCommand conn cfg (SetUserPassword sid uid password r) = respond r <$> do
-  rights <- checkRights cfg conn sid uid
+handleUserCommand conn cfg (SetUserPassword sid oldPassword password r) = respond r <$> do
+  uid <- verifySession conn sid (fromIntegral 0)
 
-  if rights
-    then updateUser conn uid $ \user -> user { u_password = makePassword (PasswordPlain password) }
-    else return $ Left UserDoesntExist
+  case uid of
+    Just uid -> do
+      user <- getUserById conn uid
+
+      case user of
+        Just user -> do
+          auth <- withAuthUser conn (u_name user) (\user -> u_active user && verifyPassword (PasswordPlain oldPassword) (u_password user)) $ \_ -> return True
+
+          case auth of
+            Just True -> fmap (fmap $ const Ok) $ updateUser conn uid $ \user -> user { u_password = makePassword (PasswordPlain password) }
+            _ -> return $ Left UserDoesntExist
+        _ -> return $ Left UserDoesntExist
+    _ -> return $ Left UserDoesntExist
 
 handleUserCommand conn cfg (GetUserData uid r) = respond r <$> do
   queryUserData conn uid
