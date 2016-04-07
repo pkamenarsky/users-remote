@@ -265,6 +265,20 @@ handleUserCommand conn cfg (GetUserData uid r) = respond r <$> do
 handleUserCommand conn cfg (QueryUsers query r) = respond r <$> do
   queryUsers conn query
 
+handleUserCommand conn cfg (ResetPassword name r) = respond r <$> do
+  uid <- getUserIdByName conn name
+  case uid of
+    Just uid -> do
+      token <- requestPasswordReset conn uid (fromIntegral 3600)
+      sendResetPasswordMail cfg name token
+    Nothing -> return ()
+
+  return Ok
+
+handleUserCommand conn cfg (SetNewPassword token password r) = respond r <$> do
+  uid <- applyNewPassword conn (PasswordResetToken token) (makePassword $ PasswordPlain password)
+  return Ok
+
 handleUserCommand conn (Config {..}) (Logout sid r) = respond r <$> do
   destroySession conn sid
   return Ok

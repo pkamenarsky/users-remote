@@ -19,7 +19,7 @@ import           Database.PostgreSQL.Simple.ToField     (ToField(..))
 import qualified Facebook                               as FB
 
 import           Web.Users.Types                        hiding (UserId)
-import           Web.Users.Types                        as U
+import qualified Web.Users.Types                        as U
 
 type UserId = Int64
 
@@ -33,6 +33,8 @@ data Config udata err = Config
   , validateUserData :: udata -> Either err ()
   , maskUserDataFromClient :: udata -> udata
   , augmentUserDataWithFbUser :: FB.User -> udata -> udata
+
+  , sendResetPasswordMail :: T.Text -> U.PasswordResetToken -> IO ()
 
   , fbCredentials :: FB.Credentials
   , httpManager :: C.Manager

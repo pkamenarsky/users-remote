@@ -31,6 +31,8 @@ data UserCommand udata uid sid err
   | AuthFacebook T.Text [(T.Text, T.Text)] udata Int (Proxy (Either (FacebookLoginError err) sid))
   | GetUserData uid (Proxy (Maybe (T.Text, (Bool, udata))))
   | QueryUsers T.Text (Proxy [(Bool, (uid, udata))])
+  | ResetPassword T.Text (Proxy Ok)
+  | SetNewPassword T.Text T.Text (Proxy Ok)
   | Logout sid (Proxy Ok)
 
 deriveJSON options ''Ok

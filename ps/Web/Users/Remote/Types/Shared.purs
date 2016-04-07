@@ -169,6 +169,10 @@ GetUserData uid (Proxy (Maybe ((Tuple  Text) ((Tuple  Boolean) udata))))
 |
 QueryUsers Text (Proxy (Array  ((Tuple  Boolean) ((Tuple  uid) udata))))
 |
+ResetPassword Text (Proxy Ok)
+|
+SetNewPassword Text Text (Proxy Ok)
+|
 Logout sid (Proxy Ok)
 
 
@@ -216,6 +220,14 @@ instance userCommandToJson :: (ToJSON udata, ToJSON uid, ToJSON sid, ToJSON err)
   toJSON (QueryUsers x0 x1) = object $
     [ "tag" .= "QueryUsers"
     , "contents" .= [toJSON x0, toJSON x1]
+    ]
+  toJSON (ResetPassword x0 x1) = object $
+    [ "tag" .= "ResetPassword"
+    , "contents" .= [toJSON x0, toJSON x1]
+    ]
+  toJSON (SetNewPassword x0 x1 x2) = object $
+    [ "tag" .= "SetNewPassword"
+    , "contents" .= [toJSON x0, toJSON x1, toJSON x2]
     ]
   toJSON (Logout x0 x1) = object $
     [ "tag" .= "Logout"
@@ -270,6 +282,14 @@ instance userCommandFromJson :: (FromJSON udata, FromJSON uid, FromJSON sid, Fro
       "QueryUsers" -> do
          [x0, x1] <- o .: "contents"
          QueryUsers <$> parseJSON x0 <*> parseJSON x1
+
+      "ResetPassword" -> do
+         [x0, x1] <- o .: "contents"
+         ResetPassword <$> parseJSON x0 <*> parseJSON x1
+
+      "SetNewPassword" -> do
+         [x0, x1, x2] <- o .: "contents"
+         SetNewPassword <$> parseJSON x0 <*> parseJSON x1 <*> parseJSON x2
 
       "Logout" -> do
          [x0, x1] <- o .: "contents"
