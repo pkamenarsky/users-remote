@@ -107,16 +107,16 @@ updateUserData conn uid udata = do
    r <- execute conn [sql|update login_user_data set user_data = ? where lid = ?|] (toJSON udata, uid)
    return (r > 0)
 
-queryUsers :: (Show uid, FromJSON ud, FromField uid) => Connection -> T.Text -> IO [(Bool, (uid, ud))]
+queryUsers :: (Show uid, FromJSON ud, FromField uid) => Connection -> T.Text -> IO [(T.Text, (Bool, (uid, ud)))]
 queryUsers conn pattern = do
   rs <- query conn
-    [sql| select login.is_active, login_user_data.lid, login_user_data.user_data
+    [sql| select login.email, login.is_active, login_user_data.lid, login_user_data.user_data
           from login inner join login_user_data
             on login.lid = login_user_data.lid
           where login.username ilike ? or login.email ilike ? or login_user_data.user_data->>'userFullName' ilike ?
     |] ("%" <> pattern <> "%", "%" <> pattern <> "%", "%" <> pattern <> "%")
   print rs
-  return [ (active, (uid, ud)) | (active, uid, ud') <- rs, Success ud <- [fromJSON ud'] ]
+  return [ (email, (active, (uid, ud))) | (email, active, uid, ud') <- rs, Success ud <- [fromJSON ud'] ]
 
 checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
             => Config udata err

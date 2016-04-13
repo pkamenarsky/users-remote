@@ -167,7 +167,7 @@ AuthFacebook Text (Array  ((Tuple  Text) Text)) udata Int (Proxy ((Either (Faceb
 |
 GetUserData uid (Proxy (Maybe ((Tuple  Text) ((Tuple  Boolean) udata))))
 |
-QueryUsers Text (Proxy (Array  ((Tuple  Boolean) ((Tuple  uid) udata))))
+QueryUsers Text (Proxy (Array  ((Tuple  Text) ((Tuple  Boolean) ((Tuple  uid) udata)))))
 |
 ResetPassword Text (Proxy Ok)
 |
