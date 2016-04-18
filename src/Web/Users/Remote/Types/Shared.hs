@@ -22,7 +22,7 @@ data Ok = Ok
 data UserCommand udata uid sid err
   = VerifySession SessionId (Proxy (Maybe uid))
   | CreateUser T.Text T.Text T.Text udata (Proxy (Either (CreateUserValidationError err) uid))
-  | UpdateUserData sid uid udata (Proxy Bool)
+  | UpdateUserData sid uid udata (Proxy (Maybe udata))
   | SetUserBanStatus sid uid Bool (Proxy (Either UpdateUserError Ok))
   | SetUserEmail sid uid T.Text (Proxy (Either UpdateUserError Ok))
   | SetUserPassword sid T.Text T.Text (Proxy (Either UpdateUserError Ok))

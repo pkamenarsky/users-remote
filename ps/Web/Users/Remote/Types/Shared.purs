@@ -151,7 +151,7 @@ data UserCommand udata uid sid err = VerifySession SessionId (Proxy (Maybe uid))
 |
 CreateUser Text Text Text udata (Proxy ((Either (CreateUserValidationError err)) uid))
 |
-UpdateUserData sid uid udata (Proxy Boolean)
+UpdateUserData sid uid udata (Proxy (Maybe udata))
 |
 SetUserBanStatus sid uid Boolean (Proxy ((Either UpdateUserError) Ok))
 |

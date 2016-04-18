@@ -225,8 +225,8 @@ handleUserCommand conn cfg (UpdateUserData sid uid udata r) = respond r <$> do
   rights <- checkRights cfg conn sid uid
 
   if rights
-    then updateUserData conn uid udata
-    else return False
+    then updateUserData conn uid udata >> return (Just udata)
+    else return Nothing
 
 handleUserCommand conn cfg (SetUserBanStatus sid uid status r) = respond r <$> do
   rights <- checkRights cfg conn sid uid
