@@ -192,7 +192,7 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond
       case validateUserData udata' of
         Left e -> return $ Left $ FacebookUserValidationError e
         Right _ -> do
-          uid <- createUser conn $ User fbUserName (fromMaybe fbUserName $ FB.userEmail fbUser) (makePassword pwd) True
+          uid <- createUser conn $ User fbUserName (fromMaybe "" $ FB.userEmail fbUser) (makePassword pwd) True
 
           case uid of
             Left e -> return $ Left $ FacebookCreateUserError e
