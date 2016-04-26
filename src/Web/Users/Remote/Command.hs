@@ -28,6 +28,7 @@ import           Data.String
 import qualified Data.Text                    as T
 import qualified Data.Text.Encoding           as TE
 import           Data.Time.Clock
+import qualified Data.Time.Clock.POSIX        as POSIX
 
 import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.FromField
@@ -212,8 +213,7 @@ handleUserCommand _ (Config {..}) (AuthFacebookUrl url perms r) = respond r <$> 
     FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
 
 handleUserCommand conn cfg (AuthFacebookWithToken fbUserId tokenData tokenTime udata t r) = respond r <$> do
-  -- TODO: tokenTime!!!
-  authFB conn cfg (FB.UserAccessToken (FB.Id fbUserId) tokenData undefined) udata t
+  authFB conn cfg (FB.UserAccessToken (FB.Id fbUserId) tokenData (POSIX.posixSecondsToUTCTime $ fromIntegral tokenTime)) udata t
 
 handleUserCommand conn cfg@(Config {..}) (AuthFacebook url args udata t r) = respond r <$> do
   -- try to fetch facebook user
