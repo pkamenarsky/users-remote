@@ -141,34 +141,15 @@ checkRights (Config {..}) conn sid uid = do
             _ -> return False
     _ -> return False
 
-handleUserCommand :: forall udata err. (ToJSON err, FromJSON udata, ToJSON udata)
-                  => Connection
-                  -> Config udata err
-                  -> UserCommand udata UserId SessionId err
-                  -> IO Value
-handleUserCommand conn _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
-
-handleUserCommand conn _ (AuthUser name pwd t r) = respond r <$> do
-  uid <- getUserIdByName conn name
-
-  case uid of
-    Just uid -> do
-      fbinfo <- queryOAuthInfo conn uid
-
-      case fbinfo of
-        Nothing -> fmap join $ withAuthUser conn name (\user -> u_active user && verifyPassword (PasswordPlain pwd) (u_password user)) $ \userId ->
-           createSession conn userId (fromIntegral t)
-        _ -> return Nothing
-    Nothing -> return Nothing
-
-handleUserCommand _ (Config {..}) (AuthFacebookUrl url perms r) = respond r <$> do
-  FB.runFacebookT fbCredentials httpManager $
-    FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
-
-handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond r <$> do
-  -- try to fetch facebook user
-  fbUser <- runResourceT $ FB.runFacebookT fbCredentials httpManager $ do
-    token <- FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
+authFB :: forall udata err. (ToJSON err, FromJSON udata, ToJSON udata)
+       => Connection
+       -> Config udata err
+       -> FB.UserAccessToken
+       -> udata
+       -> Int
+       -> IO (Either (FacebookLoginError err) SessionId)
+authFB conn (Config {..}) token udata t = do
+  fbUser <- runResourceT $ FB.runFacebookT fbCredentials httpManager $
     FB.getUser "me" [] (Just token)
 
   let fbUserName = FB.appId fbCredentials <> FB.idCode (FB.userId fbUser)
@@ -205,6 +186,40 @@ handleUserCommand conn (Config {..}) (AuthFacebook url args udata t r) = respond
                   sid <- createSession conn uid (fromIntegral t)
                   return $ maybe (Left FacebookCreateSessionError) Right sid
                 _ -> return $ Left FacebookCreateSessionError
+
+handleUserCommand :: forall udata err. (ToJSON err, FromJSON udata, ToJSON udata)
+                  => Connection
+                  -> Config udata err
+                  -> UserCommand udata UserId SessionId err
+                  -> IO Value
+handleUserCommand conn _ (VerifySession sid r)   = respond r <$> verifySession conn sid 0
+
+handleUserCommand conn _ (AuthUser name pwd t r) = respond r <$> do
+  uid <- getUserIdByName conn name
+
+  case uid of
+    Just uid -> do
+      fbinfo <- queryOAuthInfo conn uid
+
+      case fbinfo of
+        Nothing -> fmap join $ withAuthUser conn name (\user -> u_active user && verifyPassword (PasswordPlain pwd) (u_password user)) $ \userId ->
+           createSession conn userId (fromIntegral t)
+        _ -> return Nothing
+    Nothing -> return Nothing
+
+handleUserCommand _ (Config {..}) (AuthFacebookUrl url perms r) = respond r <$> do
+  FB.runFacebookT fbCredentials httpManager $
+    FB.getUserAccessTokenStep1 url (map (fromString . T.unpack) $ perms ++ ["email", "public_profile"])
+
+handleUserCommand conn cfg (AuthFacebookWithToken fbUserId tokenData tokenTime udata t r) = respond r <$> do
+  -- TODO: tokenTime!!!
+  authFB conn cfg (FB.UserAccessToken (FB.Id fbUserId) tokenData undefined) udata t
+
+handleUserCommand conn cfg@(Config {..}) (AuthFacebook url args udata t r) = respond r <$> do
+  -- try to fetch facebook user
+  token <- runResourceT $ FB.runFacebookT fbCredentials httpManager $
+    FB.getUserAccessTokenStep2 url (map (TE.encodeUtf8 *** TE.encodeUtf8) args)
+  authFB conn cfg token udata t
 
 handleUserCommand conn (Config {..}) (CreateUser u_name u_email password udata r) = respond r <$> do
   case validateUserData udata of

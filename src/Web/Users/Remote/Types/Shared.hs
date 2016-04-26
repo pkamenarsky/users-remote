@@ -29,6 +29,7 @@ data UserCommand udata uid sid err
   | AuthUser T.Text T.Text Int (Proxy (Maybe sid))
   | AuthFacebookUrl T.Text [T.Text] (Proxy T.Text)
   | AuthFacebook T.Text [(T.Text, T.Text)] udata Int (Proxy (Either (FacebookLoginError err) sid))
+  | AuthFacebookWithToken T.Text T.Text Int udata Int (Proxy (Either (FacebookLoginError err) sid))
   | GetUserData uid (Proxy (Maybe (T.Text, (Bool, udata))))
   | QueryUsers T.Text (Proxy [(T.Text, (Bool, (uid, udata)))])
   | ResetPassword T.Text (Proxy Ok)
