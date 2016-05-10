@@ -116,7 +116,6 @@ queryUsers conn pattern = do
             on login.lid = login_user_data.lid
           where login.username ilike ? or login.email ilike ? or login_user_data.user_data->>'userFullName' ilike ?
     |] ("%" <> pattern <> "%", "%" <> pattern <> "%", "%" <> pattern <> "%")
-  print rs
   return [ (email, (active, (uid, ud))) | (email, active, uid, ud') <- rs, Success ud <- [fromJSON ud'] ]
 
 checkRights :: forall udata err. (FromJSON udata, ToJSON udata)
